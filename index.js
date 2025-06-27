@@ -1,13 +1,13 @@
 #!/usr/bin/env node
 
 const { Command } = require("commander");
-const inquirer = require("inquirer").default;
 const chalk = require("chalk").default;
 const path = require("path");
 const fs = require("fs");
 const schedule = require("node-schedule");
 const notifier = require("node-notifier");
 const { GoogleGenerativeAI } = require("@google/generative-ai");
+const readline = require("readline");
 
 const program = new Command();
 
@@ -18,6 +18,7 @@ const CONFIG_DIR = path.join(
 );
 const CONFIG_FILE = path.join(CONFIG_DIR, "config.json");
 const TASKS_FILE = path.join(CONFIG_DIR, "tasks.json");
+const HISTORY_FILE = path.join(CONFIG_DIR, "history.json");
 
 // Ensure config directory exists
 if (!fs.existsSync(CONFIG_DIR)) {
@@ -81,6 +82,91 @@ const saveTasks = () => {
   fs.writeFileSync(TASKS_FILE, JSON.stringify(tasks, null, 2), "utf8");
 };
 
+// --- History Management ---
+
+// Load command history
+let commandHistory = [];
+let historyIndex = -1;
+
+const loadHistory = () => {
+  if (fs.existsSync(HISTORY_FILE)) {
+    try {
+      commandHistory = JSON.parse(fs.readFileSync(HISTORY_FILE, "utf8"));
+      console.log(chalk.gray(`Loaded ${commandHistory.length} commands from history`));
+    } catch (e) {
+      console.error(chalk.red("Error reading history file:", e.message));
+      commandHistory = [];
+    }
+  } else {
+    console.log(chalk.gray("No history file found, starting fresh"));
+  }
+};
+
+// Save command history
+const saveHistory = () => {
+  try {
+    fs.writeFileSync(HISTORY_FILE, JSON.stringify(commandHistory, null, 2), "utf8");
+    console.log(chalk.gray(`Saved ${commandHistory.length} commands to history`));
+  } catch (e) {
+    console.error(chalk.red("Error saving history file:", e.message));
+  }
+};
+
+// Add command to history
+const addToHistory = (command) => {
+  if (command && command.trim()) {
+    // Remove duplicate consecutive commands
+    if (commandHistory[commandHistory.length - 1] !== command) {
+      commandHistory.push(command);
+      console.log(chalk.gray(`Added to history: "${command}"`));
+      // Keep only last 100 commands
+      if (commandHistory.length > 100) {
+        commandHistory = commandHistory.slice(-100);
+      }
+      saveHistory();
+    } else {
+      console.log(chalk.gray(`Skipped duplicate command: "${command}"`));
+    }
+  }
+  historyIndex = -1;
+};
+
+// Get previous command from history
+const getPreviousCommand = () => {
+  if (commandHistory.length === 0) return "";
+  if (historyIndex === -1) {
+    historyIndex = commandHistory.length - 1;
+  } else if (historyIndex > 0) {
+    historyIndex--;
+  }
+  return commandHistory[historyIndex] || "";
+};
+
+// Get next command from history
+const getNextCommand = () => {
+  if (commandHistory.length === 0) return "";
+  if (historyIndex < commandHistory.length - 1) {
+    historyIndex++;
+    return commandHistory[historyIndex] || "";
+  } else {
+    historyIndex = -1;
+    return "";
+  }
+};
+
+// Custom input control with history support
+const getInputWithHistory = async (message) => {
+  const response = await prompt({
+    type: 'input',
+    name: 'input',
+    message: message,
+    initial: ''
+  });
+
+  addToHistory(response.input);
+  return response.input;
+};
+
 // --- CLI Commands ---
 
 program
@@ -92,21 +178,42 @@ program
   .command("start")
   .description("Start the interactive AI coaching session.")
   .action(async () => {
+    // Load command history on startup
+    loadHistory();
+
     console.log(
       chalk.green("Welcome to Gemini Dev Coach! Type /help for commands.")
     );
     console.log(chalk.blue("Let's discuss your plan for today."));
+    console.log(chalk.gray("Use ↑/↓ arrows to navigate command history."));
 
-    // Basic interactive loop
-    while (true) {
-      const { input } = await inquirer.prompt([
-        {
-          type: "input",
-          name: "input",
-          message: chalk.yellow("You:"),
-        },
-      ]);
+    // Setup readline interface
+    const rl = readline.createInterface({
+      input: process.stdin,
+      output: process.stdout,
+      prompt: chalk.yellow("You: "),
+      historySize: 100,
+      completer: (line) => {
+        // Optionally add tab completion for slash commands
+        const completions = ['/help', '/todo', '/config', '/checkin', '/exit'];
+        const hits = completions.filter((c) => c.startsWith(line));
+        return [hits.length ? hits : completions, line];
+      }
+    });
 
+    // Load history into readline
+    rl.history = [...commandHistory].reverse();
+
+    const ask = () => {
+      rl.prompt();
+    };
+
+    rl.on('line', async (input) => {
+      input = input.trim();
+      if (input) {
+        addToHistory(input);
+        rl.history = [...commandHistory].reverse();
+      }
       if (input.startsWith("/")) {
         const [command, ...args] = input.substring(1).split(" ");
         switch (command) {
@@ -123,6 +230,7 @@ Available commands:
             break;
           case "exit":
             console.log(chalk.green("Exiting Dev Coach. See you next time!"));
+            rl.close();
             process.exit(0);
           case "todo":
             handleTodoCommand(args);
@@ -136,11 +244,20 @@ Available commands:
           default:
             console.log(chalk.red(`Unknown command: /${command}`));
         }
-      } else {
+      } else if (input) {
         const aiResponse = await getAiResponse(input);
         console.log(chalk.magenta(aiResponse));
       }
-    }
+      ask();
+    });
+
+    rl.on('close', () => {
+      saveHistory();
+      console.log(chalk.green("Session ended. History saved."));
+      process.exit(0);
+    });
+
+    ask();
   });
 
 // --- Command Handlers ---
@@ -178,8 +295,7 @@ const handleTodoCommand = (args) => {
           statusColor = chalk.blue;
         }
         console.log(
-          `${index + 1}. [${statusColor(task.status.toUpperCase())}] ${
-            task.description
+          `${index + 1}. [${statusColor(task.status.toUpperCase())}] ${task.description
           }`
         );
       });

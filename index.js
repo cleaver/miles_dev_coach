@@ -290,6 +290,16 @@ const scheduleCheckins = () => {
         )
       );
       // In a real scenario, this would trigger a specific AI conversation flow
+
+      // Remove the triggered check-in and re-schedule
+      const triggeredIndex = config.checkins.indexOf(checkinTime);
+      if (triggeredIndex > -1) {
+        config.checkins.splice(triggeredIndex, 1);
+        saveConfig();
+        schedule.cancelJob(); // Cancel all existing jobs
+        scheduleCheckins(); // Schedule all jobs again
+        console.log(chalk.green(`Check-in for ${checkinTime} completed and removed.`));
+      }
     });
     console.log(chalk.green(`Scheduled daily check-in for ${checkinTime}`));
   });

@@ -309,20 +309,50 @@ const handleCheckinCommand = (args) => {
   const subCommand = args[0];
   switch (subCommand) {
     case "add":
-      const time = args[1]; // Expected format: HH:MM (e.g., 14:30)
+      const inputTime = args.slice(1).join(" "); // Can be HH:MM or interval like 1h 30m
       const timeRegex = /^([01]\d|2[0-3]):([0-5]\d)$/;
-      if (time && timeRegex.test(time)) {
+      const intervalRegex = /(?:(\d+)h)?(?:\s*)?(?:(\d+)m)?/;
+
+      let checkinTimeToAdd;
+
+      if (timeRegex.test(inputTime)) {
+        // If it's already HH:MM format
+        checkinTimeToAdd = inputTime;
+      } else {
+        // Try to parse as interval
+        const match = inputTime.match(intervalRegex);
+        if (match && (match[1] || match[2])) {
+          const hours = parseInt(match[1] || "0", 10);
+          const minutes = parseInt(match[2] || "0", 10);
+
+          if (hours === 0 && minutes === 0) {
+            console.log(chalk.red("Invalid interval. Use formats like 30m, 2h, or 1h 30m."));
+            break;
+          }
+
+          const now = new Date();
+          now.setHours(now.getHours() + hours);
+          now.setMinutes(now.getMinutes() + minutes);
+
+          const futureHours = String(now.getHours()).padStart(2, '0');
+          const futureMinutes = String(now.getMinutes()).padStart(2, '0');
+          checkinTimeToAdd = `${futureHours}:${futureMinutes}`;
+        } else {
+          console.log(chalk.red("Usage: /checkin add <HH:MM> or <interval> (e.g., 14:30, 30m, 2h, 1h 30m)"));
+          break;
+        }
+      }
+
+      if (checkinTimeToAdd) {
         if (!config.checkins) {
           config.checkins = [];
         }
-        config.checkins.push(time);
+        config.checkins.push(checkinTimeToAdd);
         saveConfig();
         // Re-schedule all jobs to include the new one
         schedule.cancelJob(); // Cancel all existing jobs
         scheduleCheckins(); // Schedule all jobs again
-        console.log(chalk.green(`Added check-in for ${time}.`));
-      } else {
-        console.log(chalk.red("Usage: /checkin add <HH:MM> (e.g., 14:30)"));
+        console.log(chalk.green(`Added check-in for ${checkinTimeToAdd}.`));
       }
       break;
     case "list":

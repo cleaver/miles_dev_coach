@@ -1,5 +1,6 @@
 const chalk = require("chalk").default;
 const { handleError, ErrorTypes } = require("./errorHandler");
+const { validateArrayIndex } = require("./arrayUtils");
 
 // Command validation schemas
 const COMMAND_SCHEMAS = {
@@ -132,20 +133,8 @@ const validateNumber = (value, fieldName, min = null, max = null) => {
 };
 
 const validateIndex = (value, array, fieldName) => {
-    const validation = validateNumber(value, fieldName, 1, array.length);
-    if (!validation.valid) {
-        return validation;
-    }
-
-    const index = validation.value - 1;
-    if (index < 0 || index >= array.length) {
-        return {
-            valid: false,
-            error: `${fieldName} must be between 1 and ${array.length}`
-        };
-    }
-
-    return { valid: true, value: index };
+    // Use the shared function for consistency
+    return validateArrayIndex(value, array, fieldName);
 };
 
 // Extract arguments with validation

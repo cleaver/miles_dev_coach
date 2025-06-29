@@ -1,4 +1,5 @@
 const chalk = require("chalk").default;
+const { validateArrayIndex } = require('./arrayUtils');
 
 // Error types for better error categorization
 const ErrorTypes = {
@@ -110,14 +111,10 @@ const validateTimeFormat = (timeString) => {
 };
 
 const validateTaskIndex = (index, tasks) => {
-    const numIndex = parseInt(index);
-    if (isNaN(numIndex) || numIndex < 1 || numIndex > tasks.length) {
-        return {
-            valid: false,
-            error: `Task index must be between 1 and ${tasks.length}`
-        };
-    }
-    return { valid: true, index: numIndex - 1 };
+    // Use the shared function for consistency
+    const result = validateArrayIndex(index, tasks, 'Task index');
+    if (!result.valid) return result;
+    return { valid: true, index: result.value };
 };
 
 const validateApiKey = (apiKey) => {

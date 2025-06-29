@@ -77,24 +77,33 @@ const getAiResponse = async (message, apiKey) => {
         Keep responses under 200 words and be encouraging.`;
 
         // Generate content with timeout
-        const result = await Promise.race([
-            model.generateContent(enhancedMessage),
-            new Promise((_, reject) =>
-                setTimeout(() => reject(new Error("Request timeout")), 30000)
-            )
-        ]);
+        let timeoutId;
+        const timeoutPromise = new Promise((_, reject) => {
+            timeoutId = setTimeout(() => reject(new Error("Request timeout")), 30000);
+        });
 
-        const response = await result.response;
-        const text = response.text();
+        try {
+            const result = await Promise.race([
+                model.generateContent(enhancedMessage),
+                timeoutPromise
+            ]);
+            clearTimeout(timeoutId);
 
-        // Validate the response
-        const responseValidation = validateApiResponse(text);
-        if (!responseValidation.valid) {
-            console.log(chalk.yellow(`AI response validation failed: ${responseValidation.error}`));
-            return chalk.magenta(`AI Coach: ${getFallbackResponse()}`);
+            const response = await result.response;
+            const text = response.text();
+
+            // Validate the response
+            const responseValidation = validateApiResponse(text);
+            if (!responseValidation.valid) {
+                console.log(chalk.yellow(`AI response validation failed: ${responseValidation.error}`));
+                return chalk.magenta(`AI Coach: ${getFallbackResponse()}`);
+            }
+
+            return chalk.magenta(`AI Coach: ${text}`);
+        } catch (error) {
+            clearTimeout(timeoutId);
+            throw error;
         }
-
-        return chalk.magenta(`AI Coach: ${text}`);
 
     } catch (error) {
         // Categorize the error
@@ -130,17 +139,26 @@ const testAiConnection = async (apiKey) => {
         const genAI = new GoogleGenerativeAI(apiKey);
         const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
-        const result = await Promise.race([
-            model.generateContent("Hello"),
-            new Promise((_, reject) =>
-                setTimeout(() => reject(new Error("Connection timeout")), 10000)
-            )
-        ]);
+        let timeoutId;
+        const timeoutPromise = new Promise((_, reject) => {
+            timeoutId = setTimeout(() => reject(new Error("Connection timeout")), 10000);
+        });
 
-        return {
-            success: true,
-            message: "AI connection test successful"
-        };
+        try {
+            const result = await Promise.race([
+                model.generateContent("Hello"),
+                timeoutPromise
+            ]);
+            clearTimeout(timeoutId);
+
+            return {
+                success: true,
+                message: "AI connection test successful"
+            };
+        } catch (error) {
+            clearTimeout(timeoutId);
+            throw error;
+        }
 
     } catch (error) {
         const errorResult = handleError(error, "AI Connection Test", ErrorTypes.API_ERROR);

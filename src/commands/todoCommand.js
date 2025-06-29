@@ -1,10 +1,11 @@
 const chalk = require("chalk").default;
 const { addTask, completeTask, removeTask, backupTasks } = require("../services/taskService");
-const { handleError, ErrorTypes, validateTaskIndex } = require("../utils/errorHandler");
+const { handleError, ErrorTypes } = require("../utils/errorHandler");
+const { validateCommand, getUsage, validateString, validateIndex } = require("../utils/commandValidator");
 
 const handleTodoCommand = (args, tasks) => {
     try {
-        // Validate input arguments
+        // Basic argument validation
         if (!args || !Array.isArray(args) || args.length === 0) {
             const errorResult = handleError(
                 new Error("Todo command requires arguments"),
@@ -18,23 +19,27 @@ const handleTodoCommand = (args, tasks) => {
 
         const subCommand = args[0];
 
+        // Validate command structure
+        const commandValidation = validateCommand('todo', subCommand, args.slice(1));
+        if (!commandValidation.valid) {
+            console.log(chalk.red(commandValidation.error));
+            console.log(chalk.blue(commandValidation.usage));
+            return { tasks: tasks, success: false };
+        }
+
         switch (subCommand) {
             case "add":
-                const newTask = args.slice(1).join(" ");
-                if (!newTask || newTask.trim().length === 0) {
-                    const errorResult = handleError(
-                        new Error("Task description is required"),
-                        "Todo Add Command",
-                        ErrorTypes.VALIDATION_ERROR
-                    );
-                    console.log(chalk.red(errorResult.userMessage));
-                    console.log(chalk.blue("Usage: /todo add <task description>"));
+                const taskDescription = args.slice(1).join(" ");
+                const descriptionValidation = validateString(taskDescription, "Task description");
+                if (!descriptionValidation.valid) {
+                    console.log(chalk.red(descriptionValidation.error));
+                    console.log(chalk.blue(getUsage('todo', 'add')));
                     return { tasks: tasks, success: false };
                 }
 
-                const addedTask = addTask(tasks, newTask);
+                const addedTask = addTask(tasks, descriptionValidation.value);
                 if (addedTask) {
-                    console.log(chalk.green(`Added task: "${newTask}"`));
+                    console.log(chalk.green(`Added task: "${descriptionValidation.value}"`));
                     return { tasks: tasks, success: true };
                 } else {
                     console.log(chalk.red("Failed to add task. Please try again."));
@@ -64,30 +69,15 @@ const handleTodoCommand = (args, tasks) => {
                 return { tasks: tasks, success: true };
 
             case "complete":
-                if (args.length < 2) {
-                    const errorResult = handleError(
-                        new Error("Task index is required"),
-                        "Todo Complete Command",
-                        ErrorTypes.VALIDATION_ERROR
-                    );
-                    console.log(chalk.red(errorResult.userMessage));
-                    console.log(chalk.blue("Usage: /todo complete <task number>"));
-                    return { tasks: tasks, success: false };
-                }
-
                 const completeIndex = args[1];
-                const completeValidation = validateTaskIndex(completeIndex, tasks);
+                const completeValidation = validateIndex(completeIndex, tasks, "Task index");
                 if (!completeValidation.valid) {
-                    const errorResult = handleError(
-                        new Error(completeValidation.error),
-                        "Todo Complete Command",
-                        ErrorTypes.VALIDATION_ERROR
-                    );
-                    console.log(chalk.red(errorResult.userMessage));
+                    console.log(chalk.red(completeValidation.error));
+                    console.log(chalk.blue(getUsage('todo', 'complete')));
                     return { tasks: tasks, success: false };
                 }
 
-                const completedTask = completeTask(tasks, completeValidation.index);
+                const completedTask = completeTask(tasks, completeValidation.value);
                 if (completedTask) {
                     console.log(chalk.green(`Task "${completedTask.description}" marked as completed.`));
                     return { tasks: tasks, success: true };
@@ -97,30 +87,15 @@ const handleTodoCommand = (args, tasks) => {
                 }
 
             case "remove":
-                if (args.length < 2) {
-                    const errorResult = handleError(
-                        new Error("Task index is required"),
-                        "Todo Remove Command",
-                        ErrorTypes.VALIDATION_ERROR
-                    );
-                    console.log(chalk.red(errorResult.userMessage));
-                    console.log(chalk.blue("Usage: /todo remove <task number>"));
-                    return { tasks: tasks, success: false };
-                }
-
                 const removeIndex = args[1];
-                const removeValidation = validateTaskIndex(removeIndex, tasks);
+                const removeValidation = validateIndex(removeIndex, tasks, "Task index");
                 if (!removeValidation.valid) {
-                    const errorResult = handleError(
-                        new Error(removeValidation.error),
-                        "Todo Remove Command",
-                        ErrorTypes.VALIDATION_ERROR
-                    );
-                    console.log(chalk.red(errorResult.userMessage));
+                    console.log(chalk.red(removeValidation.error));
+                    console.log(chalk.blue(getUsage('todo', 'remove')));
                     return { tasks: tasks, success: false };
                 }
 
-                const removedTask = removeTask(tasks, removeValidation.index);
+                const removedTask = removeTask(tasks, removeValidation.value);
                 if (removedTask) {
                     console.log(chalk.green(`Removed task: "${removedTask.description}"`));
                     return { tasks: tasks, success: true };
@@ -140,13 +115,8 @@ const handleTodoCommand = (args, tasks) => {
                 }
 
             default:
-                const errorResult = handleError(
-                    new Error(`Unknown /todo subcommand: ${subCommand}`),
-                    "Todo Command",
-                    ErrorTypes.VALIDATION_ERROR
-                );
-                console.log(chalk.red(errorResult.userMessage));
-                console.log(chalk.blue("Available commands: add, list, complete, remove, backup"));
+                console.log(chalk.red(`Unknown /todo subcommand: ${subCommand}`));
+                console.log(chalk.blue(getUsage('todo')));
                 return { tasks: tasks, success: false };
         }
 

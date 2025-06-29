@@ -2,10 +2,11 @@ const chalk = require("chalk").default;
 const { parseTimeInput } = require("../utils/timeUtils");
 const { cancelAllJobs, getScheduledJobsInfo, testNotification } = require("../services/schedulerService");
 const { handleError, ErrorTypes } = require("../utils/errorHandler");
+const { validateCommand, getUsage, validateString, validateIndex } = require("../utils/commandValidator");
 
 const handleCheckinCommand = (args, config, saveConfig, scheduleCheckins) => {
     try {
-        // Validate input arguments
+        // Basic argument validation
         if (!args || !Array.isArray(args) || args.length === 0) {
             const errorResult = handleError(
                 new Error("Checkin command requires arguments"),
@@ -19,29 +20,28 @@ const handleCheckinCommand = (args, config, saveConfig, scheduleCheckins) => {
 
         const subCommand = args[0];
 
+        // Validate command structure
+        const commandValidation = validateCommand('checkin', subCommand, args.slice(1));
+        if (!commandValidation.valid) {
+            console.log(chalk.red(commandValidation.error));
+            console.log(chalk.blue(commandValidation.usage));
+            return { config: config, success: false };
+        }
+
         switch (subCommand) {
             case "add":
-                if (args.length < 2) {
-                    const errorResult = handleError(
-                        new Error("Checkin add requires a time"),
-                        "Checkin Add Command",
-                        ErrorTypes.VALIDATION_ERROR
-                    );
-                    console.log(chalk.red(errorResult.userMessage));
-                    console.log(chalk.blue("Usage: /checkin add <HH:MM> or <interval> (e.g., 14:30, 30m, 2h)"));
+                const inputTime = args.slice(1).join(" ");
+                const timeValidation = validateString(inputTime, "Time input");
+                if (!timeValidation.valid) {
+                    console.log(chalk.red(timeValidation.error));
+                    console.log(chalk.blue(getUsage('checkin', 'add')));
                     return { config: config, success: false };
                 }
 
-                const inputTime = args.slice(1).join(" ");
-                const parseResult = parseTimeInput(inputTime);
-
+                const parseResult = parseTimeInput(timeValidation.value);
                 if (!parseResult.success) {
-                    const errorResult = handleError(
-                        new Error(parseResult.error),
-                        "Checkin Add Command",
-                        ErrorTypes.VALIDATION_ERROR
-                    );
-                    console.log(chalk.red(errorResult.userMessage));
+                    console.log(chalk.red(parseResult.error));
+                    console.log(chalk.blue(getUsage('checkin', 'add')));
                     return { config: config, success: false };
                 }
 
@@ -102,31 +102,16 @@ const handleCheckinCommand = (args, config, saveConfig, scheduleCheckins) => {
                 return { config: config, success: true };
 
             case "remove":
-                if (args.length < 2) {
-                    const errorResult = handleError(
-                        new Error("Checkin remove requires an index"),
-                        "Checkin Remove Command",
-                        ErrorTypes.VALIDATION_ERROR
-                    );
-                    console.log(chalk.red(errorResult.userMessage));
-                    console.log(chalk.blue("Usage: /checkin remove <check-in number>"));
+                const removeIndex = args[1];
+                const removeValidation = validateIndex(removeIndex, config.checkins || [], "Check-in index");
+                if (!removeValidation.valid) {
+                    console.log(chalk.red(removeValidation.error));
+                    console.log(chalk.blue(getUsage('checkin', 'remove')));
                     return { config: config, success: false };
                 }
 
-                const removeIndex = parseInt(args[1]) - 1;
-
-                if (isNaN(removeIndex) || removeIndex < 0 || removeIndex >= (config.checkins?.length || 0)) {
-                    const errorResult = handleError(
-                        new Error(`Check-in index must be between 1 and ${config.checkins?.length || 0}`),
-                        "Checkin Remove Command",
-                        ErrorTypes.VALIDATION_ERROR
-                    );
-                    console.log(chalk.red(errorResult.userMessage));
-                    return { config: config, success: false };
-                }
-
-                if (config.checkins && config.checkins[removeIndex]) {
-                    const removedTime = config.checkins.splice(removeIndex, 1)[0];
+                if (config.checkins && config.checkins[removeValidation.value]) {
+                    const removedTime = config.checkins.splice(removeValidation.value, 1)[0];
                     const saveResult = saveConfig(config);
 
                     if (saveResult) {
@@ -179,13 +164,8 @@ const handleCheckinCommand = (args, config, saveConfig, scheduleCheckins) => {
                 return { config: config, success: testResult.success };
 
             default:
-                const errorResult = handleError(
-                    new Error(`Unknown /checkin subcommand: ${subCommand}`),
-                    "Checkin Command",
-                    ErrorTypes.VALIDATION_ERROR
-                );
-                console.log(chalk.red(errorResult.userMessage));
-                console.log(chalk.blue("Available commands: add, list, remove, status, test"));
+                console.log(chalk.red(`Unknown /checkin subcommand: ${subCommand}`));
+                console.log(chalk.blue(getUsage('checkin')));
                 return { config: config, success: false };
         }
 

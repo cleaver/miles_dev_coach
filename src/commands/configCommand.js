@@ -1,10 +1,11 @@
 const chalk = require("chalk").default;
 const { handleError, ErrorTypes, validateApiKey } = require("../utils/errorHandler");
 const { testAiConnection, getAiServiceStatus } = require("../services/aiService");
+const { validateCommand, getUsage, validateString } = require("../utils/commandValidator");
 
 const handleConfigCommand = (args, config, saveConfig) => {
     try {
-        // Validate input arguments
+        // Basic argument validation
         if (!args || !Array.isArray(args) || args.length === 0) {
             const errorResult = handleError(
                 new Error("Config command requires arguments"),
@@ -12,70 +13,57 @@ const handleConfigCommand = (args, config, saveConfig) => {
                 ErrorTypes.VALIDATION_ERROR
             );
             console.log(chalk.red(errorResult.userMessage));
-            console.log(chalk.blue("Usage: /config [set <key> <value>|get <key>|list|reset|test]"));
+            console.log(chalk.blue("Usage: /config [set <key> <value>|get <key>|list|reset|test|status]"));
             return { config: config, success: false };
         }
 
         const subCommand = args[0];
 
+        // Validate command structure
+        const commandValidation = validateCommand('config', subCommand, args.slice(1));
+        if (!commandValidation.valid) {
+            console.log(chalk.red(commandValidation.error));
+            console.log(chalk.blue(commandValidation.usage));
+            return { config: config, success: false };
+        }
+
         switch (subCommand) {
             case "set":
-                if (args.length < 3) {
-                    const errorResult = handleError(
-                        new Error("Config set requires key and value"),
-                        "Config Set Command",
-                        ErrorTypes.VALIDATION_ERROR
-                    );
-                    console.log(chalk.red(errorResult.userMessage));
-                    console.log(chalk.blue("Usage: /config set <key> <value>"));
-                    return { config: config, success: false };
-                }
-
                 const key = args[1];
                 const value = args.slice(2).join(" ");
 
                 // Validate key
-                if (!key || typeof key !== 'string' || key.trim().length === 0) {
-                    const errorResult = handleError(
-                        new Error("Config key must be a non-empty string"),
-                        "Config Set Command",
-                        ErrorTypes.VALIDATION_ERROR
-                    );
-                    console.log(chalk.red(errorResult.userMessage));
+                const keyValidation = validateString(key, "Config key");
+                if (!keyValidation.valid) {
+                    console.log(chalk.red(keyValidation.error));
+                    console.log(chalk.blue(getUsage('config', 'set')));
                     return { config: config, success: false };
                 }
 
                 // Validate value
-                if (value === undefined || value === null) {
-                    const errorResult = handleError(
-                        new Error("Config value cannot be empty"),
-                        "Config Set Command",
-                        ErrorTypes.VALIDATION_ERROR
-                    );
-                    console.log(chalk.red(errorResult.userMessage));
+                const valueValidation = validateString(value, "Config value");
+                if (!valueValidation.valid) {
+                    console.log(chalk.red(valueValidation.error));
+                    console.log(chalk.blue(getUsage('config', 'set')));
                     return { config: config, success: false };
                 }
 
                 // Special validation for API key
-                if (key === 'ai_api_key') {
-                    const apiKeyValidation = validateApiKey(value);
+                if (keyValidation.value === 'ai_api_key') {
+                    const apiKeyValidation = validateApiKey(valueValidation.value);
                     if (!apiKeyValidation.valid) {
-                        const errorResult = handleError(
-                            new Error(apiKeyValidation.error),
-                            "Config Set Command",
-                            ErrorTypes.VALIDATION_ERROR
-                        );
-                        console.log(chalk.red(errorResult.userMessage));
+                        console.log(chalk.red(apiKeyValidation.error));
+                        console.log(chalk.blue(getUsage('config', 'set')));
                         return { config: config, success: false };
                     }
                 }
 
                 // Set the config value
-                config[key] = value;
+                config[keyValidation.value] = valueValidation.value;
                 const saveResult = saveConfig(config);
 
                 if (saveResult) {
-                    console.log(chalk.green(`Config set: ${key} = ${key === 'ai_api_key' ? '[HIDDEN]' : value}`));
+                    console.log(chalk.green(`Config set: ${keyValidation.value} = ${keyValidation.value === 'ai_api_key' ? '[HIDDEN]' : valueValidation.value}`));
                     return { config: config, success: true };
                 } else {
                     console.log(chalk.red("Failed to save configuration. Please try again."));
@@ -83,34 +71,19 @@ const handleConfigCommand = (args, config, saveConfig) => {
                 }
 
             case "get":
-                if (args.length < 2) {
-                    const errorResult = handleError(
-                        new Error("Config get requires a key"),
-                        "Config Get Command",
-                        ErrorTypes.VALIDATION_ERROR
-                    );
-                    console.log(chalk.red(errorResult.userMessage));
-                    console.log(chalk.blue("Usage: /config get <key>"));
-                    return { config: config, success: false };
-                }
-
                 const getKey = args[1];
-
-                if (!getKey || typeof getKey !== 'string' || getKey.trim().length === 0) {
-                    const errorResult = handleError(
-                        new Error("Config key must be a non-empty string"),
-                        "Config Get Command",
-                        ErrorTypes.VALIDATION_ERROR
-                    );
-                    console.log(chalk.red(errorResult.userMessage));
+                const getKeyValidation = validateString(getKey, "Config key");
+                if (!getKeyValidation.valid) {
+                    console.log(chalk.red(getKeyValidation.error));
+                    console.log(chalk.blue(getUsage('config', 'get')));
                     return { config: config, success: false };
                 }
 
-                if (config[getKey] !== undefined) {
-                    const displayValue = getKey === 'ai_api_key' ? '[HIDDEN]' : config[getKey];
-                    console.log(chalk.blue(`Config ${getKey}: ${displayValue}`));
+                if (config[getKeyValidation.value] !== undefined) {
+                    const displayValue = getKeyValidation.value === 'ai_api_key' ? '[HIDDEN]' : config[getKeyValidation.value];
+                    console.log(chalk.blue(`Config ${getKeyValidation.value}: ${displayValue}`));
                 } else {
-                    console.log(chalk.yellow(`Config key "${getKey}" not found.`));
+                    console.log(chalk.yellow(`Config key "${getKeyValidation.value}" not found.`));
                 }
                 return { config: config, success: true };
 
@@ -165,13 +138,8 @@ const handleConfigCommand = (args, config, saveConfig) => {
                 return { config: config, success: true };
 
             default:
-                const errorResult = handleError(
-                    new Error(`Unknown /config subcommand: ${subCommand}`),
-                    "Config Command",
-                    ErrorTypes.VALIDATION_ERROR
-                );
-                console.log(chalk.red(errorResult.userMessage));
-                console.log(chalk.blue("Available commands: set, get, list, reset, test, status"));
+                console.log(chalk.red(`Unknown /config subcommand: ${subCommand}`));
+                console.log(chalk.blue(getUsage('config')));
                 return { config: config, success: false };
         }
 

@@ -1,0 +1,142 @@
+const chalk = require("chalk").default;
+
+// Error types for better error categorization
+const ErrorTypes = {
+    FILE_IO: 'FILE_IO',
+    API_ERROR: 'API_ERROR',
+    VALIDATION_ERROR: 'VALIDATION_ERROR',
+    CONFIG_ERROR: 'CONFIG_ERROR',
+    NETWORK_ERROR: 'NETWORK_ERROR',
+    UNKNOWN_ERROR: 'UNKNOWN_ERROR'
+};
+
+// Centralized error handling function
+const handleError = (error, context = '', errorType = ErrorTypes.UNKNOWN_ERROR) => {
+    const timestamp = new Date().toISOString();
+    const errorMessage = error.message || error.toString();
+
+    // Log error for debugging
+    console.error(chalk.red(`[${timestamp}] Error in ${context}: ${errorMessage}`));
+
+    // Return user-friendly error message based on error type
+    switch (errorType) {
+        case ErrorTypes.FILE_IO:
+            return {
+                success: false,
+                error: `File operation failed: ${errorMessage}`,
+                userMessage: "Unable to save or load data. Please check file permissions."
+            };
+        case ErrorTypes.API_ERROR:
+            return {
+                success: false,
+                error: `API Error: ${errorMessage}`,
+                userMessage: "Unable to connect to AI service. Please check your API key and internet connection."
+            };
+        case ErrorTypes.VALIDATION_ERROR:
+            return {
+                success: false,
+                error: `Validation Error: ${errorMessage}`,
+                userMessage: `Invalid input: ${errorMessage}`
+            };
+        case ErrorTypes.CONFIG_ERROR:
+            return {
+                success: false,
+                error: `Configuration Error: ${errorMessage}`,
+                userMessage: "Configuration error. Please check your settings."
+            };
+        case ErrorTypes.NETWORK_ERROR:
+            return {
+                success: false,
+                error: `Network Error: ${errorMessage}`,
+                userMessage: "Network connection issue. Please check your internet connection."
+            };
+        default:
+            return {
+                success: false,
+                error: `Unexpected Error: ${errorMessage}`,
+                userMessage: "An unexpected error occurred. Please try again."
+            };
+    }
+};
+
+// Safe JSON parsing with error handling
+const safeJsonParse = (jsonString, defaultValue = null) => {
+    try {
+        return JSON.parse(jsonString);
+    } catch (error) {
+        console.error(chalk.yellow(`JSON parsing failed: ${error.message}`));
+        return defaultValue;
+    }
+};
+
+// Safe file reading with error handling
+const safeFileRead = (filePath, defaultValue = null) => {
+    const fs = require("fs");
+    try {
+        if (fs.existsSync(filePath)) {
+            const content = fs.readFileSync(filePath, "utf8");
+            return safeJsonParse(content, defaultValue);
+        }
+        return defaultValue;
+    } catch (error) {
+        console.error(chalk.red(`Failed to read file ${filePath}: ${error.message}`));
+        return defaultValue;
+    }
+};
+
+// Safe file writing with error handling
+const safeFileWrite = (filePath, data) => {
+    const fs = require("fs");
+    try {
+        const jsonString = JSON.stringify(data, null, 2);
+        fs.writeFileSync(filePath, jsonString, "utf8");
+        return { success: true };
+    } catch (error) {
+        const errorResult = handleError(error, `Writing to ${filePath}`, ErrorTypes.FILE_IO);
+        return errorResult;
+    }
+};
+
+// Input validation utilities
+const validateTimeFormat = (timeString) => {
+    const timeRegex = /^([01]\d|2[0-3]):([0-5]\d)$/;
+    if (!timeRegex.test(timeString)) {
+        return {
+            valid: false,
+            error: "Time must be in HH:MM format (e.g., 14:30)"
+        };
+    }
+    return { valid: true };
+};
+
+const validateTaskIndex = (index, tasks) => {
+    const numIndex = parseInt(index);
+    if (isNaN(numIndex) || numIndex < 1 || numIndex > tasks.length) {
+        return {
+            valid: false,
+            error: `Task index must be between 1 and ${tasks.length}`
+        };
+    }
+    return { valid: true, index: numIndex - 1 };
+};
+
+const validateApiKey = (apiKey) => {
+    if (!apiKey || typeof apiKey !== 'string' || apiKey.trim().length === 0) {
+        return {
+            valid: false,
+            error: "API key is required and must be a non-empty string"
+        };
+    }
+    return { valid: true };
+};
+
+module.exports = {
+    ErrorTypes,
+    handleError,
+    safeJsonParse,
+    safeFileRead,
+    safeFileWrite,
+    validateTimeFormat,
+    validateTaskIndex,
+    validateApiKey
+}; 

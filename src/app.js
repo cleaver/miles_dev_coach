@@ -16,34 +16,149 @@ const { handleTodoCommand } = require("./commands/todoCommand");
 const { handleConfigCommand } = require("./commands/configCommand");
 const { handleCheckinCommand } = require("./commands/checkinCommand");
 
+// Import error handling
+const { handleError, ErrorTypes } = require("./utils/errorHandler");
+
 const program = new Command();
 
-// Initialize application state
-let config = loadConfig();
-let tasks = loadTasks();
-let commandHistory = loadHistory();
-let historyIndex = -1;
+// Initialize application state with error handling
+let config, tasks, commandHistory, historyIndex;
+
+const initializeApp = () => {
+    try {
+        console.log(chalk.gray("Initializing Gemini Dev Coach..."));
+
+        // Load configuration
+        config = loadConfig();
+        console.log(chalk.gray("Configuration loaded."));
+
+        // Load tasks
+        tasks = loadTasks();
+        console.log(chalk.gray(`Loaded ${tasks.length} tasks.`));
+
+        // Load command history
+        commandHistory = loadHistory();
+        historyIndex = -1;
+        console.log(chalk.gray("Command history loaded."));
+
+        // Schedule check-ins
+        const scheduleResult = scheduleCheckins(config, saveConfig);
+        if (scheduleResult.success) {
+            console.log(chalk.gray(`Scheduled ${scheduleResult.scheduled} check-ins.`));
+        } else {
+            console.log(chalk.yellow(`Warning: Failed to schedule check-ins: ${scheduleResult.error}`));
+        }
+
+        console.log(chalk.green("Gemini Dev Coach initialized successfully!"));
+        return true;
+
+    } catch (error) {
+        const errorResult = handleError(error, "Application Initialization", ErrorTypes.UNKNOWN_ERROR);
+        console.log(chalk.red(errorResult.userMessage));
+        console.log(chalk.red("Failed to initialize application. Please check your configuration."));
+        return false;
+    }
+};
 
 // Get previous command from history
 const getPreviousCommand = () => {
-    if (commandHistory.length === 0) return "";
-    if (historyIndex === -1) {
-        historyIndex = commandHistory.length - 1;
-    } else if (historyIndex > 0) {
-        historyIndex--;
+    try {
+        if (commandHistory.length === 0) return "";
+        if (historyIndex === -1) {
+            historyIndex = commandHistory.length - 1;
+        } else if (historyIndex > 0) {
+            historyIndex--;
+        }
+        return commandHistory[historyIndex] || "";
+    } catch (error) {
+        const errorResult = handleError(error, "Getting Previous Command", ErrorTypes.UNKNOWN_ERROR);
+        console.log(chalk.red(errorResult.userMessage));
+        return "";
     }
-    return commandHistory[historyIndex] || "";
 };
 
 // Get next command from history
 const getNextCommand = () => {
-    if (commandHistory.length === 0) return "";
-    if (historyIndex < commandHistory.length - 1) {
-        historyIndex++;
-        return commandHistory[historyIndex] || "";
-    } else {
-        historyIndex = -1;
+    try {
+        if (commandHistory.length === 0) return "";
+        if (historyIndex < commandHistory.length - 1) {
+            historyIndex++;
+            return commandHistory[historyIndex] || "";
+        } else {
+            historyIndex = -1;
+            return "";
+        }
+    } catch (error) {
+        const errorResult = handleError(error, "Getting Next Command", ErrorTypes.UNKNOWN_ERROR);
+        console.log(chalk.red(errorResult.userMessage));
         return "";
+    }
+};
+
+// Process user input with error handling
+const processUserInput = async (input) => {
+    try {
+        input = input.trim();
+        if (!input) return;
+
+        // Add to history
+        commandHistory = addToHistory(commandHistory, input);
+
+        if (input.startsWith("/")) {
+            const [command, ...args] = input.substring(1).split(" ");
+
+            switch (command) {
+                case "help":
+                    console.log(
+                        chalk.cyan(`
+Available commands:
+  /todo [add <task>|list|complete <index>|remove <index>|backup] - Manage your daily tasks.
+  /config [set <key> <value>|get <key>|list|reset|test|status] - Manage application settings.
+  /checkin [add <time>|list|remove <index>|status|test] - Schedule and manage check-in times.
+  /exit - Exit the application.
+                        `)
+                    );
+                    break;
+
+                case "exit":
+                    console.log(chalk.green("Exiting Dev Coach. See you next time!"));
+                    saveHistory(commandHistory);
+                    process.exit(0);
+                    break;
+
+                case "todo":
+                    const todoResult = handleTodoCommand(args, tasks);
+                    tasks = todoResult.tasks;
+                    break;
+
+                case "config":
+                    const configResult = handleConfigCommand(args, config, saveConfig);
+                    config = configResult.config;
+                    break;
+
+                case "checkin":
+                    const checkinResult = handleCheckinCommand(args, config, saveConfig, scheduleCheckins);
+                    config = checkinResult.config;
+                    break;
+
+                default:
+                    console.log(chalk.red(`Unknown command: /${command}`));
+                    console.log(chalk.blue("Type /help for available commands."));
+            }
+        } else {
+            // Handle AI conversation
+            try {
+                const aiResponse = await getAiResponse(input, config.ai_api_key);
+                console.log(aiResponse);
+            } catch (error) {
+                const errorResult = handleError(error, "AI Conversation", ErrorTypes.API_ERROR);
+                console.log(chalk.red(errorResult.userMessage));
+            }
+        }
+
+    } catch (error) {
+        const errorResult = handleError(error, "Processing User Input", ErrorTypes.UNKNOWN_ERROR);
+        console.log(chalk.red(errorResult.userMessage));
     }
 };
 
@@ -57,90 +172,98 @@ program
     .command("start")
     .description("Start the interactive AI coaching session.")
     .action(async () => {
-        console.log(
-            chalk.green("Welcome to Gemini Dev Coach! Type /help for commands.")
-        );
-        console.log(chalk.blue("Let's discuss your plan for today."));
-        console.log(chalk.gray("Use ↑/↓ arrows to navigate command history."));
-
-        // Setup readline interface
-        const rl = readline.createInterface({
-            input: process.stdin,
-            output: process.stdout,
-            prompt: chalk.yellow("You: "),
-            historySize: 100,
-            completer: (line) => {
-                // Optionally add tab completion for slash commands
-                const completions = ['/help', '/todo', '/config', '/checkin', '/exit'];
-                const hits = completions.filter((c) => c.startsWith(line));
-                return [hits.length ? hits : completions, line];
+        try {
+            // Initialize the application
+            if (!initializeApp()) {
+                process.exit(1);
             }
-        });
 
-        // Load history into readline
-        rl.history = [...commandHistory].reverse();
+            console.log(chalk.green("Welcome to Gemini Dev Coach! Type /help for commands."));
+            console.log(chalk.blue("Let's discuss your plan for today."));
+            console.log(chalk.gray("Use ↑/↓ arrows to navigate command history."));
 
-        const ask = () => {
-            rl.prompt();
-        };
-
-        rl.on('line', async (input) => {
-            input = input.trim();
-            if (input) {
-                commandHistory = addToHistory(commandHistory, input);
-                rl.history = [...commandHistory].reverse();
-            }
-            if (input.startsWith("/")) {
-                const [command, ...args] = input.substring(1).split(" ");
-                switch (command) {
-                    case "help":
-                        console.log(
-                            chalk.cyan(`
-Available commands:
-  /todo [add <task>|list|complete <index>|remove <index>] - Manage your daily tasks.
-  /config [set <key> <value>|get <key>] - Manage application settings.
-  /checkin [add <time>|list|remove <index>] - Schedule and manage check-in times.
-  /exit - Exit the application.
-                        `)
-                        );
-                        break;
-                    case "exit":
-                        console.log(chalk.green("Exiting Dev Coach. See you next time!"));
-                        saveHistory(commandHistory);
-                        rl.close();
-                        process.exit(0);
-                    case "todo":
-                        const todoResult = handleTodoCommand(args, tasks);
-                        tasks = todoResult.tasks;
-                        break;
-                    case "config":
-                        const configResult = handleConfigCommand(args, config, saveConfig);
-                        config = configResult.config;
-                        break;
-                    case "checkin":
-                        const checkinResult = handleCheckinCommand(args, config, saveConfig, scheduleCheckins);
-                        config = checkinResult.config;
-                        break;
-                    default:
-                        console.log(chalk.red(`Unknown command: /${command}`));
+            // Setup readline interface
+            const rl = readline.createInterface({
+                input: process.stdin,
+                output: process.stdout,
+                prompt: chalk.yellow("You: "),
+                historySize: 100,
+                completer: (line) => {
+                    try {
+                        // Optionally add tab completion for slash commands
+                        const completions = ['/help', '/todo', '/config', '/checkin', '/exit'];
+                        const hits = completions.filter((c) => c.startsWith(line));
+                        return [hits.length ? hits : completions, line];
+                    } catch (error) {
+                        const errorResult = handleError(error, "Command Completion", ErrorTypes.UNKNOWN_ERROR);
+                        console.log(chalk.red(errorResult.userMessage));
+                        return [[], line];
+                    }
                 }
-            } else if (input) {
-                const aiResponse = await getAiResponse(input, config.ai_api_key);
-                console.log(chalk.magenta(aiResponse));
-            }
+            });
+
+            // Load history into readline
+            rl.history = [...commandHistory].reverse();
+
+            const ask = () => {
+                rl.prompt();
+            };
+
+            rl.on('line', async (input) => {
+                await processUserInput(input);
+                ask();
+            });
+
+            rl.on('close', () => {
+                try {
+                    saveHistory(commandHistory);
+                    console.log(chalk.green("Session ended. History saved."));
+                } catch (error) {
+                    const errorResult = handleError(error, "Saving History on Exit", ErrorTypes.FILE_IO);
+                    console.log(chalk.red(errorResult.userMessage));
+                }
+                process.exit(0);
+            });
+
+            // Handle process termination gracefully
+            process.on('SIGINT', () => {
+                console.log(chalk.yellow("\nReceived interrupt signal. Saving and exiting..."));
+                try {
+                    saveHistory(commandHistory);
+                    console.log(chalk.green("History saved. Goodbye!"));
+                } catch (error) {
+                    const errorResult = handleError(error, "Saving History on Interrupt", ErrorTypes.FILE_IO);
+                    console.log(chalk.red(errorResult.userMessage));
+                }
+                process.exit(0);
+            });
+
+            process.on('SIGTERM', () => {
+                console.log(chalk.yellow("\nReceived termination signal. Saving and exiting..."));
+                try {
+                    saveHistory(commandHistory);
+                    console.log(chalk.green("History saved. Goodbye!"));
+                } catch (error) {
+                    const errorResult = handleError(error, "Saving History on Termination", ErrorTypes.FILE_IO);
+                    console.log(chalk.red(errorResult.userMessage));
+                }
+                process.exit(0);
+            });
+
             ask();
-        });
 
-        rl.on('close', () => {
-            saveHistory(commandHistory);
-            console.log(chalk.green("Session ended. History saved."));
-            process.exit(0);
-        });
-
-        ask();
+        } catch (error) {
+            const errorResult = handleError(error, "Starting Interactive Session", ErrorTypes.UNKNOWN_ERROR);
+            console.log(chalk.red(errorResult.userMessage));
+            process.exit(1);
+        }
     });
 
-program.parse(process.argv);
-
-// Schedule checkins on startup
-scheduleCheckins(config, saveConfig); 
+// Parse command line arguments
+try {
+    program.parse(process.argv);
+} catch (error) {
+    const errorResult = handleError(error, "Parsing Command Line Arguments", ErrorTypes.UNKNOWN_ERROR);
+    console.log(chalk.red(errorResult.userMessage));
+    process.exit(1);
+} 

@@ -71,26 +71,26 @@ const safeJsonParse = (jsonString, defaultValue = null) => {
 };
 
 // Safe file reading with error handling
-const safeFileRead = (filePath, defaultValue = null) => {
-    const fs = require("fs");
+const safeFileRead = async (filePath, defaultValue = null) => {
+    const fs = require("fs").promises;
     try {
-        if (fs.existsSync(filePath)) {
-            const content = fs.readFileSync(filePath, "utf8");
-            return safeJsonParse(content, defaultValue);
-        }
-        return defaultValue;
+        const content = await fs.readFile(filePath, "utf8");
+        return safeJsonParse(content, defaultValue);
     } catch (error) {
+        if (error.code === 'ENOENT') {
+            return defaultValue; // File doesn't exist
+        }
         console.error(chalk.red(`Failed to read file ${filePath}: ${error.message}`));
         return defaultValue;
     }
 };
 
 // Safe file writing with error handling
-const safeFileWrite = (filePath, data) => {
-    const fs = require("fs");
+const safeFileWrite = async (filePath, data) => {
+    const fs = require("fs").promises;
     try {
         const jsonString = JSON.stringify(data, null, 2);
-        fs.writeFileSync(filePath, jsonString, "utf8");
+        await fs.writeFile(filePath, jsonString, "utf8");
         return { success: true };
     } catch (error) {
         const errorResult = handleError(error, `Writing to ${filePath}`, ErrorTypes.FILE_IO);

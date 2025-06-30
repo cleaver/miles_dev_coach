@@ -3,7 +3,7 @@ const { handleError, ErrorTypes, validateApiKey } = require("../utils/errorHandl
 const { testAiConnection, getAiServiceStatus } = require("../services/aiService");
 const { validateCommand, getUsage, validateString } = require("../utils/commandValidator");
 
-const handleConfigCommand = (args, config, saveConfig) => {
+const handleConfigCommand = async (args, config, saveConfig) => {
     try {
         // Basic argument validation
         if (!args || !Array.isArray(args) || args.length === 0) {
@@ -60,7 +60,7 @@ const handleConfigCommand = (args, config, saveConfig) => {
 
                 // Set the config value
                 config[keyValidation.value] = valueValidation.value;
-                const saveResult = saveConfig(config);
+                const saveResult = await saveConfig(config);
 
                 if (saveResult) {
                     console.log(chalk.green(`Config set: ${keyValidation.value} = ${keyValidation.value === 'ai_api_key' ? '[HIDDEN]' : valueValidation.value}`));
@@ -101,7 +101,7 @@ const handleConfigCommand = (args, config, saveConfig) => {
                 return { config: config, success: true };
 
             case "reset":
-                const resetResult = saveConfig({});
+                const resetResult = await saveConfig({});
                 if (resetResult) {
                     console.log(chalk.green("Configuration reset to defaults."));
                     config = {};

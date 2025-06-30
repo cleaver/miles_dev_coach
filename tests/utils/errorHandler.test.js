@@ -23,7 +23,12 @@ jest.mock('chalk', () => ({
 
 // Mock fs module
 const fs = require('fs');
-jest.mock('fs');
+jest.mock('fs', () => ({
+    promises: {
+        readFile: jest.fn(),
+        writeFile: jest.fn()
+    }
+}));
 
 describe('ErrorHandler Utils', () => {
     beforeEach(() => {
@@ -145,67 +150,59 @@ describe('ErrorHandler Utils', () => {
     });
 
     describe('safeFileRead', () => {
-        test('should read existing file successfully', () => {
+        test('should read existing file successfully', async () => {
             const mockContent = '{"data": "test"}';
-            fs.existsSync.mockReturnValue(true);
-            fs.readFileSync.mockReturnValue(mockContent);
+            fs.promises.readFile.mockResolvedValue(mockContent);
 
-            const result = safeFileRead('/test/file.json', []);
+            const result = await safeFileRead('/test/file.json', []);
 
             expect(result).toEqual({ data: 'test' });
-            expect(fs.existsSync).toHaveBeenCalledWith('/test/file.json');
-            expect(fs.readFileSync).toHaveBeenCalledWith('/test/file.json', 'utf8');
+            expect(fs.promises.readFile).toHaveBeenCalledWith('/test/file.json', 'utf8');
         });
 
-        test('should return default value for non-existent file', () => {
-            fs.existsSync.mockReturnValue(false);
+        test('should return default value for non-existent file', async () => {
+            fs.promises.readFile.mockRejectedValue({ code: 'ENOENT' });
 
-            const result = safeFileRead('/test/file.json', ['default']);
+            const result = await safeFileRead('/test/file.json', ['default']);
 
             expect(result).toEqual(['default']);
-            expect(fs.readFileSync).not.toHaveBeenCalled();
         });
 
-        test('should return default value on read error', () => {
-            fs.existsSync.mockReturnValue(true);
-            fs.readFileSync.mockImplementation(() => {
-                throw new Error('Read error');
-            });
+        test('should return default value on read error', async () => {
+            fs.promises.readFile.mockRejectedValue(new Error('Read error'));
 
-            const result = safeFileRead('/test/file.json', 'default');
+            const result = await safeFileRead('/test/file.json', 'default');
 
             expect(result).toBe('default');
         });
 
-        test('should return null as default when no default provided', () => {
-            fs.existsSync.mockReturnValue(false);
+        test('should return null as default when no default provided', async () => {
+            fs.promises.readFile.mockRejectedValue({ code: 'ENOENT' });
 
-            const result = safeFileRead('/test/file.json');
+            const result = await safeFileRead('/test/file.json');
 
             expect(result).toBeNull();
         });
     });
 
     describe('safeFileWrite', () => {
-        test('should write file successfully', () => {
-            fs.writeFileSync.mockImplementation(() => { });
+        test('should write file successfully', async () => {
+            fs.promises.writeFile.mockResolvedValue();
 
-            const result = safeFileWrite('/test/file.json', { data: 'test' });
+            const result = await safeFileWrite('/test/file.json', { data: 'test' });
 
             expect(result.success).toBe(true);
-            expect(fs.writeFileSync).toHaveBeenCalledWith(
+            expect(fs.promises.writeFile).toHaveBeenCalledWith(
                 '/test/file.json',
                 JSON.stringify({ data: 'test' }, null, 2),
                 'utf8'
             );
         });
 
-        test('should handle write errors', () => {
-            fs.writeFileSync.mockImplementation(() => {
-                throw new Error('Write error');
-            });
+        test('should handle write errors', async () => {
+            fs.promises.writeFile.mockRejectedValue(new Error('Write error'));
 
-            const result = safeFileWrite('/test/file.json', { data: 'test' });
+            const result = await safeFileWrite('/test/file.json', { data: 'test' });
 
             expect(result.success).toBe(false);
             expect(result.error).toContain('File operation failed');

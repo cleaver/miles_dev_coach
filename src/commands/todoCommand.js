@@ -3,7 +3,7 @@ const { addTask, completeTask, removeTask, backupTasks } = require("../services/
 const { handleError, ErrorTypes } = require("../utils/errorHandler");
 const { validateCommand, getUsage, validateString, validateIndex } = require("../utils/commandValidator");
 
-const handleTodoCommand = (args, tasks) => {
+const handleTodoCommand = async (args, tasks) => {
     try {
         // Basic argument validation
         if (!args || !Array.isArray(args) || args.length === 0) {
@@ -105,7 +105,7 @@ const handleTodoCommand = (args, tasks) => {
                 }
 
             case "backup":
-                const backupResult = backupTasks();
+                const backupResult = await backupTasks();
                 if (backupResult) {
                     console.log(chalk.green("Tasks backed up successfully."));
                     return { tasks: tasks, success: true };

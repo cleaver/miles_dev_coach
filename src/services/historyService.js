@@ -31,20 +31,20 @@ const validateHistoryArray = (history) => {
 };
 
 // Load command history with error handling
-const loadHistory = () => {
+const loadHistory = async () => {
     try {
-        if (!ensureConfigDir()) {
+        if (!(await ensureConfigDir())) {
             console.log(chalk.red("Failed to create config directory. Starting with empty history."));
             return [];
         }
 
         // Check if file is corrupted
-        if (isFileCorrupted(HISTORY_FILE)) {
+        if (await isFileCorrupted(HISTORY_FILE)) {
             console.log(chalk.yellow("History file appears to be corrupted. Starting with empty history."));
             return [];
         }
 
-        const commandHistory = safeFileRead(HISTORY_FILE, []);
+        const commandHistory = await safeFileRead(HISTORY_FILE, []);
 
         // Validate loaded history
         const validation = validateHistoryArray(commandHistory);
@@ -65,8 +65,13 @@ const loadHistory = () => {
 };
 
 // Save command history with error handling
-const saveHistory = (commandHistory) => {
+const saveHistory = async (commandHistory) => {
     try {
+        if (!(await ensureConfigDir())) {
+            console.log(chalk.red("Failed to create config directory. Cannot save history."));
+            return false;
+        }
+
         // Validate history before saving
         const validation = validateHistoryArray(commandHistory);
         if (!validation.valid) {
@@ -79,7 +84,7 @@ const saveHistory = (commandHistory) => {
             return false;
         }
 
-        const result = safeFileWrite(HISTORY_FILE, commandHistory);
+        const result = await safeFileWrite(HISTORY_FILE, commandHistory);
         if (result.success) {
             console.log(chalk.gray(`Saved ${commandHistory.length} commands to history`));
             return true;
@@ -136,9 +141,9 @@ const addToHistory = (commandHistory, command) => {
 };
 
 // Clear history
-const clearHistory = () => {
+const clearHistory = async () => {
     try {
-        const result = safeFileWrite(HISTORY_FILE, []);
+        const result = await safeFileWrite(HISTORY_FILE, []);
         if (result.success) {
             console.log(chalk.green("History cleared successfully."));
             return true;
@@ -154,11 +159,11 @@ const clearHistory = () => {
 };
 
 // Backup history
-const backupHistory = () => {
+const backupHistory = async () => {
     try {
-        const history = loadHistory();
+        const history = await loadHistory();
         const backupFile = HISTORY_FILE.replace('.json', `.backup.${Date.now()}.json`);
-        const result = safeFileWrite(backupFile, history);
+        const result = await safeFileWrite(backupFile, history);
         if (result.success) {
             console.log(chalk.green(`History backed up to: ${backupFile}`));
             return true;

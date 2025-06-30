@@ -4,7 +4,7 @@ const { cancelAllJobs, getScheduledJobsInfo, testNotification } = require("../se
 const { handleError, ErrorTypes } = require("../utils/errorHandler");
 const { validateCommand, getUsage, validateString, validateIndex } = require("../utils/commandValidator");
 
-const handleCheckinCommand = (args, config, saveConfig, scheduleCheckins) => {
+const handleCheckinCommand = async (args, config, saveConfig, scheduleCheckins) => {
     try {
         // Basic argument validation
         if (!args || !Array.isArray(args) || args.length === 0) {
@@ -60,7 +60,7 @@ const handleCheckinCommand = (args, config, saveConfig, scheduleCheckins) => {
 
                 // Add the check-in time
                 config.checkins.push(checkinTimeToAdd);
-                const saveResult = saveConfig(config);
+                const saveResult = await saveConfig(config);
 
                 if (saveResult) {
                     // Re-schedule all jobs to include the new one
@@ -74,14 +74,14 @@ const handleCheckinCommand = (args, config, saveConfig, scheduleCheckins) => {
                             console.log(chalk.red(`Failed to schedule check-in: ${scheduleResult.error}`));
                             // Remove the check-in if scheduling failed
                             config.checkins.pop();
-                            saveConfig(config);
+                            await saveConfig(config);
                             return { config: config, success: false };
                         }
                     } else {
                         console.log(chalk.red(`Failed to cancel existing jobs: ${cancelResult.error}`));
                         // Remove the check-in if cancellation failed
                         config.checkins.pop();
-                        saveConfig(config);
+                        await saveConfig(config);
                         return { config: config, success: false };
                     }
                 } else {
@@ -112,7 +112,7 @@ const handleCheckinCommand = (args, config, saveConfig, scheduleCheckins) => {
 
                 if (config.checkins && config.checkins[removeValidation.value]) {
                     const removedTime = config.checkins.splice(removeValidation.value, 1)[0];
-                    const saveResult = saveConfig(config);
+                    const saveResult = await saveConfig(config);
 
                     if (saveResult) {
                         const cancelResult = cancelAllJobs();

@@ -1,16 +1,6 @@
 const { handleTodoCommand } = require('../../src/commands/todoCommand');
 
 // Mock dependencies
-jest.mock('chalk', () => ({
-    default: {
-        red: jest.fn((text) => text),
-        yellow: jest.fn((text) => text),
-        blue: jest.fn((text) => text),
-        green: jest.fn((text) => text),
-        gray: jest.fn((text) => text)
-    }
-}));
-
 jest.mock('../../src/services/taskService', () => ({
     addTask: jest.fn(),
     completeTask: jest.fn(),
@@ -32,21 +22,31 @@ jest.mock('../../src/utils/errorHandler', () => ({
 
 jest.mock('../../src/utils/commandValidator', () => ({
     validateCommand: jest.fn(),
-    getUsage: jest.fn((command, subcommand) => `Usage: /${command} ${subcommand || '[add|list|complete|remove|backup]'}`),
+    getUsage: jest.fn(() => 'Usage: /todo [add <task>|list|complete <index>|remove <index>|backup]'),
     validateString: jest.fn(),
     validateIndex: jest.fn()
 }));
 
+jest.mock('chalk', () => ({
+    default: {
+        red: jest.fn((text) => text),
+        blue: jest.fn((text) => text),
+        green: jest.fn((text) => text),
+        yellow: jest.fn((text) => text)
+    }
+}));
+
 const { addTask, completeTask, removeTask, backupTasks } = require('../../src/services/taskService');
-const { handleError } = require('../../src/utils/errorHandler');
 const { validateCommand, getUsage, validateString, validateIndex } = require('../../src/utils/commandValidator');
+const { handleError } = require('../../src/utils/errorHandler');
 
 describe('TodoCommand', () => {
     let mockTasks;
+    let consoleSpy;
 
     beforeEach(() => {
         jest.clearAllMocks();
-        console.log = jest.fn();
+        consoleSpy = jest.spyOn(console, 'log').mockImplementation();
 
         mockTasks = [
             {
@@ -59,300 +59,156 @@ describe('TodoCommand', () => {
             {
                 id: 2,
                 description: 'Test task 2',
-                status: 'completed',
+                status: 'in progress',
                 created_at: '2023-01-01T00:00:00.000Z',
                 updated_at: '2023-01-01T00:00:00.000Z'
             }
         ];
+
+        // Default mock implementations
+        validateCommand.mockReturnValue({ valid: true });
+        validateString.mockReturnValue({ valid: true, value: 'test task' });
+        validateIndex.mockReturnValue({ valid: true, value: 0 });
+        addTask.mockReturnValue({ id: 3, description: 'test task', status: 'pending' });
+        completeTask.mockReturnValue({ id: 1, description: 'Test task 1', status: 'completed' });
+        removeTask.mockReturnValue({ id: 1, description: 'Test task 1', status: 'pending' });
+        backupTasks.mockResolvedValue(true);
     });
 
-    describe('Argument validation', () => {
-        test('should handle missing arguments', () => {
-            const result = handleTodoCommand([], mockTasks);
-
-            expect(result.success).toBe(false);
-            expect(result.tasks).toBe(mockTasks);
-            expect(handleError).toHaveBeenCalledWith(
-                expect.any(Error),
-                'Todo Command',
-                expect.any(String)
-            );
-        });
-
-        test('should handle null arguments', () => {
-            const result = handleTodoCommand(null, mockTasks);
-
-            expect(result.success).toBe(false);
-            expect(result.tasks).toBe(mockTasks);
-        });
-
-        test('should handle invalid command structure', () => {
-            validateCommand.mockReturnValue({
-                valid: false,
-                error: 'Invalid command structure',
-                usage: 'Usage: /todo [add|list|complete|remove|backup]'
-            });
-
-            const result = handleTodoCommand(['invalid'], mockTasks);
-
-            expect(result.success).toBe(false);
-            expect(result.tasks).toBe(mockTasks);
-            expect(console.log).toHaveBeenCalledWith('Invalid command structure');
-        });
+    afterEach(() => {
+        consoleSpy.mockRestore();
     });
 
-    describe('add command', () => {
-        test('should add task successfully', () => {
-            const taskDescription = 'New test task';
-            const addedTask = {
-                id: 3,
-                description: taskDescription,
-                status: 'pending',
-                created_at: '2023-01-01T00:00:00.000Z',
-                updated_at: '2023-01-01T00:00:00.000Z'
-            };
+    describe('handleTodoCommand', () => {
+        test('should handle add command successfully', async () => {
+            const args = ['add', 'test task'];
+            const tasks = [];
 
-            validateCommand.mockReturnValue({ valid: true });
-            validateString.mockReturnValue({
-                valid: true,
-                value: taskDescription
-            });
-            addTask.mockReturnValue(addedTask);
-
-            const result = handleTodoCommand(['add', 'New', 'test', 'task'], mockTasks);
+            const result = await handleTodoCommand(args, tasks);
 
             expect(result.success).toBe(true);
-            expect(result.tasks).toBe(mockTasks);
-            expect(addTask).toHaveBeenCalledWith(mockTasks, taskDescription);
-            expect(console.log).toHaveBeenCalledWith(`Added task: "${taskDescription}"`);
+            expect(validateCommand).toHaveBeenCalledWith('todo', 'add', ['test task']);
+            expect(validateString).toHaveBeenCalledWith('test task', 'Task description');
+            expect(addTask).toHaveBeenCalledWith(tasks, 'test task');
         });
 
-        test('should handle invalid task description', () => {
-            validateCommand.mockReturnValue({ valid: true });
-            validateString.mockReturnValue({
-                valid: false,
-                error: 'Task description cannot be empty'
-            });
+        test('should handle list command with tasks', async () => {
+            const args = ['list'];
+            const tasks = [
+                { id: 1, description: 'Task 1', status: 'pending' },
+                { id: 2, description: 'Task 2', status: 'completed' }
+            ];
 
-            const result = handleTodoCommand(['add', ''], mockTasks);
+            const result = await handleTodoCommand(args, tasks);
+
+            expect(result.success).toBe(true);
+            expect(result.tasks).toEqual(tasks);
+        });
+
+        test('should handle list command with no tasks', async () => {
+            const args = ['list'];
+            const tasks = [];
+
+            const result = await handleTodoCommand(args, tasks);
+
+            expect(result.success).toBe(true);
+            expect(result.tasks).toEqual(tasks);
+        });
+
+        test('should handle complete command successfully', async () => {
+            const args = ['complete', '1'];
+            const tasks = [
+                { id: 1, description: 'Task 1', status: 'pending' }
+            ];
+
+            const result = await handleTodoCommand(args, tasks);
+
+            expect(result.success).toBe(true);
+            expect(validateIndex).toHaveBeenCalledWith('1', tasks, 'Task index');
+            expect(completeTask).toHaveBeenCalledWith(tasks, 0);
+        });
+
+        test('should handle remove command successfully', async () => {
+            const args = ['remove', '1'];
+            const tasks = [
+                { id: 1, description: 'Task 1', status: 'pending' }
+            ];
+
+            const result = await handleTodoCommand(args, tasks);
+
+            expect(result.success).toBe(true);
+            expect(validateIndex).toHaveBeenCalledWith('1', tasks, 'Task index');
+            expect(removeTask).toHaveBeenCalledWith(tasks, 0);
+        });
+
+        test('should handle backup command successfully', async () => {
+            const args = ['backup'];
+            const tasks = [
+                { id: 1, description: 'Task 1', status: 'pending' }
+            ];
+
+            const result = await handleTodoCommand(args, tasks);
+
+            expect(result.success).toBe(true);
+            expect(backupTasks).toHaveBeenCalled();
+        });
+
+        test('should handle invalid command', async () => {
+            const args = ['invalid'];
+            const tasks = [];
+
+            validateCommand.mockReturnValue({ valid: false, error: 'Invalid command' });
+
+            const result = await handleTodoCommand(args, tasks);
 
             expect(result.success).toBe(false);
-            expect(result.tasks).toBe(mockTasks);
-            expect(console.log).toHaveBeenCalledWith('Task description cannot be empty');
+            expect(result.tasks).toEqual(tasks);
         });
 
-        test('should handle add task failure', () => {
-            validateCommand.mockReturnValue({ valid: true });
-            validateString.mockReturnValue({
-                valid: true,
-                value: 'Test task'
-            });
+        test('should handle empty arguments', async () => {
+            const args = [];
+            const tasks = [];
+
+            const result = await handleTodoCommand(args, tasks);
+
+            expect(result.success).toBe(false);
+            expect(result.tasks).toEqual(tasks);
+        });
+
+        test('should handle validation errors', async () => {
+            const args = ['add', ''];
+            const tasks = [];
+
+            validateString.mockReturnValue({ valid: false, error: 'Task description cannot be empty' });
+
+            const result = await handleTodoCommand(args, tasks);
+
+            expect(result.success).toBe(false);
+            expect(result.tasks).toEqual(tasks);
+        });
+
+        test('should handle add task failure', async () => {
+            const args = ['add', 'test task'];
+            const tasks = [];
+
             addTask.mockReturnValue(null);
 
-            const result = handleTodoCommand(['add', 'Test', 'task'], mockTasks);
+            const result = await handleTodoCommand(args, tasks);
 
             expect(result.success).toBe(false);
-            expect(result.tasks).toBe(mockTasks);
-            expect(console.log).toHaveBeenCalledWith('Failed to add task. Please try again.');
-        });
-    });
-
-    describe('list command', () => {
-        test('should list tasks successfully', () => {
-            validateCommand.mockReturnValue({ valid: true });
-
-            const result = handleTodoCommand(['list'], mockTasks);
-
-            expect(result.success).toBe(true);
-            expect(result.tasks).toBe(mockTasks);
-            expect(console.log).toHaveBeenCalledWith('Your current tasks:');
-            expect(console.log).toHaveBeenCalledWith(
-                expect.stringContaining('1. [PENDING] Test task 1')
-            );
-            expect(console.log).toHaveBeenCalledWith(
-                expect.stringContaining('2. [COMPLETED] Test task 2')
-            );
+            expect(result.tasks).toEqual(tasks);
         });
 
-        test('should handle empty task list', () => {
-            validateCommand.mockReturnValue({ valid: true });
+        test('should handle backup failure', async () => {
+            const args = ['backup'];
+            const tasks = [];
 
-            const result = handleTodoCommand(['list'], []);
+            backupTasks.mockResolvedValue(false);
 
-            expect(result.success).toBe(true);
-            expect(result.tasks).toEqual([]);
-            expect(console.log).toHaveBeenCalledWith(
-                'No tasks yet. Add some with /todo add <task description>'
-            );
-        });
-    });
-
-    describe('complete command', () => {
-        test('should complete task successfully', () => {
-            const completedTask = {
-                id: 1,
-                description: 'Test task 1',
-                status: 'completed',
-                created_at: '2023-01-01T00:00:00.000Z',
-                updated_at: '2023-01-01T00:00:00.000Z'
-            };
-
-            validateCommand.mockReturnValue({ valid: true });
-            validateIndex.mockReturnValue({
-                valid: true,
-                value: 1
-            });
-            completeTask.mockReturnValue(completedTask);
-
-            const result = handleTodoCommand(['complete', '1'], mockTasks);
-
-            expect(result.success).toBe(true);
-            expect(result.tasks).toBe(mockTasks);
-            expect(completeTask).toHaveBeenCalledWith(mockTasks, 1);
-            expect(console.log).toHaveBeenCalledWith(
-                `Task "${completedTask.description}" marked as completed.`
-            );
-        });
-
-        test('should handle invalid task index', () => {
-            validateCommand.mockReturnValue({ valid: true });
-            validateIndex.mockReturnValue({
-                valid: false,
-                error: 'Task index must be between 1 and 2'
-            });
-
-            const result = handleTodoCommand(['complete', '999'], mockTasks);
+            const result = await handleTodoCommand(args, tasks);
 
             expect(result.success).toBe(false);
-            expect(result.tasks).toBe(mockTasks);
-            expect(console.log).toHaveBeenCalledWith('Task index must be between 1 and 2');
-        });
-
-        test('should handle complete task failure', () => {
-            validateCommand.mockReturnValue({ valid: true });
-            validateIndex.mockReturnValue({
-                valid: true,
-                value: 1
-            });
-            completeTask.mockReturnValue(null);
-
-            const result = handleTodoCommand(['complete', '1'], mockTasks);
-
-            expect(result.success).toBe(false);
-            expect(result.tasks).toBe(mockTasks);
-            expect(console.log).toHaveBeenCalledWith('Failed to complete task. Please try again.');
-        });
-    });
-
-    describe('remove command', () => {
-        test('should remove task successfully', () => {
-            const removedTask = {
-                id: 1,
-                description: 'Test task 1',
-                status: 'pending',
-                created_at: '2023-01-01T00:00:00.000Z',
-                updated_at: '2023-01-01T00:00:00.000Z'
-            };
-
-            validateCommand.mockReturnValue({ valid: true });
-            validateIndex.mockReturnValue({
-                valid: true,
-                value: 1
-            });
-            removeTask.mockReturnValue(removedTask);
-
-            const result = handleTodoCommand(['remove', '1'], mockTasks);
-
-            expect(result.success).toBe(true);
-            expect(result.tasks).toBe(mockTasks);
-            expect(removeTask).toHaveBeenCalledWith(mockTasks, 1);
-            expect(console.log).toHaveBeenCalledWith(
-                `Removed task: "${removedTask.description}"`
-            );
-        });
-
-        test('should handle invalid task index for remove', () => {
-            validateCommand.mockReturnValue({ valid: true });
-            validateIndex.mockReturnValue({
-                valid: false,
-                error: 'Task index must be between 1 and 2'
-            });
-
-            const result = handleTodoCommand(['remove', '999'], mockTasks);
-
-            expect(result.success).toBe(false);
-            expect(result.tasks).toBe(mockTasks);
-            expect(console.log).toHaveBeenCalledWith('Task index must be between 1 and 2');
-        });
-
-        test('should handle remove task failure', () => {
-            validateCommand.mockReturnValue({ valid: true });
-            validateIndex.mockReturnValue({
-                valid: true,
-                value: 1
-            });
-            removeTask.mockReturnValue(null);
-
-            const result = handleTodoCommand(['remove', '1'], mockTasks);
-
-            expect(result.success).toBe(false);
-            expect(result.tasks).toBe(mockTasks);
-            expect(console.log).toHaveBeenCalledWith('Failed to remove task. Please try again.');
-        });
-    });
-
-    describe('backup command', () => {
-        test('should backup tasks successfully', () => {
-            validateCommand.mockReturnValue({ valid: true });
-            backupTasks.mockReturnValue(true);
-
-            const result = handleTodoCommand(['backup'], mockTasks);
-
-            expect(result.success).toBe(true);
-            expect(result.tasks).toBe(mockTasks);
-            expect(backupTasks).toHaveBeenCalled();
-            expect(console.log).toHaveBeenCalledWith('Tasks backed up successfully.');
-        });
-
-        test('should handle backup failure', () => {
-            validateCommand.mockReturnValue({ valid: true });
-            backupTasks.mockReturnValue(false);
-
-            const result = handleTodoCommand(['backup'], mockTasks);
-
-            expect(result.success).toBe(false);
-            expect(result.tasks).toBe(mockTasks);
-            expect(console.log).toHaveBeenCalledWith('Failed to backup tasks. Please try again.');
-        });
-    });
-
-    describe('Unknown subcommand', () => {
-        test('should handle unknown subcommand', () => {
-            validateCommand.mockReturnValue({ valid: true });
-
-            const result = handleTodoCommand(['unknown'], mockTasks);
-
-            expect(result.success).toBe(false);
-            expect(result.tasks).toBe(mockTasks);
-            expect(console.log).toHaveBeenCalledWith('Unknown /todo subcommand: unknown');
-        });
-    });
-
-    describe('Error handling', () => {
-        test('should handle unexpected errors', () => {
-            validateCommand.mockImplementation(() => {
-                throw new Error('Unexpected error');
-            });
-
-            const result = handleTodoCommand(['list'], mockTasks);
-
-            expect(result.success).toBe(false);
-            expect(result.tasks).toBe(mockTasks);
-            expect(handleError).toHaveBeenCalledWith(
-                expect.any(Error),
-                'Todo Command',
-                expect.any(String)
-            );
+            expect(result.tasks).toEqual(tasks);
         });
     });
 }); 

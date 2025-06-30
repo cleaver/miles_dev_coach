@@ -40,10 +40,10 @@ const validateConfig = (config) => {
 };
 
 // Load or initialize configuration
-const loadConfig = () => {
+const loadConfig = async () => {
     try {
-        ensureConfigDir();
-        const config = safeFileRead(CONFIG_FILE, DEFAULT_CONFIG);
+        await ensureConfigDir();
+        const config = await safeFileRead(CONFIG_FILE, DEFAULT_CONFIG);
 
         // Validate loaded config
         const validation = validateConfig(config);
@@ -65,7 +65,7 @@ const loadConfig = () => {
 };
 
 // Save configuration
-const saveConfig = (config) => {
+const saveConfig = async (config) => {
     try {
         // Validate config before saving
         const validation = validateConfig(config);
@@ -79,7 +79,7 @@ const saveConfig = (config) => {
             return false;
         }
 
-        const result = safeFileWrite(CONFIG_FILE, config);
+        const result = await safeFileWrite(CONFIG_FILE, config);
         if (result.success) {
             console.log(chalk.gray("Configuration saved successfully."));
             return true;

@@ -22,8 +22,8 @@ jest.mock('chalk', () => ({
 
 jest.mock('../../src/config/paths', () => ({
     TASKS_FILE: '/test/tasks.json',
-    ensureConfigDir: jest.fn(() => true),
-    isFileCorrupted: jest.fn(() => false)
+    ensureConfigDir: jest.fn(),
+    isFileCorrupted: jest.fn()
 }));
 
 jest.mock('../../src/utils/errorHandler', () => ({
@@ -120,75 +120,65 @@ describe('TaskService', () => {
     });
 
     describe('loadTasks', () => {
-        test('should load tasks successfully', () => {
+        test('should load tasks successfully', async () => {
             const mockTasks = [
-                {
-                    id: 1,
-                    description: 'Test task',
-                    status: 'pending',
-                    created_at: '2023-01-01T00:00:00.000Z',
-                    updated_at: '2023-01-01T00:00:00.000Z'
-                }
+                { id: 1, description: 'Test task', status: 'pending' }
             ];
 
-            ensureConfigDir.mockReturnValue(true);
-            isFileCorrupted.mockReturnValue(false);
-            safeFileRead.mockReturnValue(mockTasks);
+            ensureConfigDir.mockResolvedValue(true);
+            isFileCorrupted.mockResolvedValue(false);
+            safeFileRead.mockResolvedValue(mockTasks);
 
-            const result = loadTasks();
+            const result = await loadTasks();
 
             expect(result).toEqual(mockTasks);
             expect(ensureConfigDir).toHaveBeenCalled();
+            expect(isFileCorrupted).toHaveBeenCalledWith('/test/tasks.json');
             expect(safeFileRead).toHaveBeenCalledWith('/test/tasks.json', []);
         });
 
-        test('should return empty array when config dir creation fails', () => {
-            ensureConfigDir.mockReturnValue(false);
+        test('should return empty array when config directory creation fails', async () => {
+            ensureConfigDir.mockResolvedValue(false);
 
-            const result = loadTasks();
+            const result = await loadTasks();
 
             expect(result).toEqual([]);
-            expect(console.log).toHaveBeenCalledWith(expect.stringContaining('Failed to create config directory'));
+            expect(ensureConfigDir).toHaveBeenCalled();
+        });
+
+        test('should return empty array when file is corrupted', async () => {
+            ensureConfigDir.mockResolvedValue(true);
+            isFileCorrupted.mockResolvedValue(true);
+
+            const result = await loadTasks();
+
+            expect(result).toEqual([]);
+            expect(isFileCorrupted).toHaveBeenCalledWith('/test/tasks.json');
         });
     });
 
     describe('saveTasks', () => {
-        test('should save tasks successfully', () => {
-            const tasks = [
-                {
-                    id: 1,
-                    description: 'Test task',
-                    status: 'pending',
-                    created_at: '2023-01-01T00:00:00.000Z',
-                    updated_at: '2023-01-01T00:00:00.000Z'
-                }
+        test('should save tasks successfully', async () => {
+            const mockTasks = [
+                { id: 1, description: 'Test task', status: 'pending' }
             ];
 
-            safeFileWrite.mockReturnValue({ success: true });
+            safeFileWrite.mockResolvedValue({ success: true });
 
-            const result = saveTasks(tasks);
+            const result = await saveTasks(mockTasks);
 
             expect(result).toBe(true);
-            expect(safeFileWrite).toHaveBeenCalledWith('/test/tasks.json', tasks);
+            expect(safeFileWrite).toHaveBeenCalledWith('/test/tasks.json', mockTasks);
         });
 
-        test('should return false when file write fails', () => {
-            const tasks = [
-                {
-                    id: 1,
-                    description: 'Test task',
-                    status: 'pending',
-                    created_at: '2023-01-01T00:00:00.000Z',
-                    updated_at: '2023-01-01T00:00:00.000Z'
-                }
+        test('should return false when save fails', async () => {
+            const mockTasks = [
+                { id: 1, description: 'Test task', status: 'pending' }
             ];
 
-            safeFileWrite.mockReturnValue({
-                success: false,
-                userMessage: 'Write failed'
-            });
+            safeFileWrite.mockResolvedValue({ success: false, userMessage: 'Save failed' });
 
-            const result = saveTasks(tasks);
+            const result = await saveTasks(mockTasks);
 
             expect(result).toBe(false);
         });
@@ -293,21 +283,35 @@ describe('TaskService', () => {
     });
 
     describe('backupTasks', () => {
-        test('should create backup successfully', () => {
-            safeFileWrite.mockReturnValue({ success: true });
+        test('should backup tasks successfully', async () => {
+            const mockTasks = [
+                { id: 1, description: 'Test task', status: 'pending' }
+            ];
 
-            const result = backupTasks();
+            // Mock the loadTasks function directly
+            const taskService = require('../../src/services/taskService');
+            taskService.loadTasks = jest.fn().mockResolvedValue(mockTasks);
+            safeFileWrite.mockResolvedValue({ success: true });
+
+            const result = await backupTasks();
 
             expect(result).toBe(true);
+            expect(taskService.loadTasks).toHaveBeenCalled();
+            expect(safeFileWrite).toHaveBeenCalledWith(
+                expect.stringContaining('/test/tasks.backup.'),
+                mockTasks
+            );
         });
 
-        test('should handle backup creation failure', () => {
-            safeFileWrite.mockReturnValue({
-                success: false,
-                userMessage: 'Backup failed'
-            });
+        test('should return false when backup fails', async () => {
+            const mockTasks = [];
 
-            const result = backupTasks();
+            // Mock the loadTasks function directly
+            const taskService = require('../../src/services/taskService');
+            taskService.loadTasks = jest.fn().mockResolvedValue(mockTasks);
+            safeFileWrite.mockResolvedValue({ success: false, userMessage: 'Backup failed' });
+
+            const result = await backupTasks();
 
             expect(result).toBe(false);
         });

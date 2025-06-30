@@ -53,20 +53,20 @@ const validateTasksArray = (tasks) => {
 };
 
 // Load or initialize tasks with error handling
-const loadTasks = () => {
+const loadTasks = async () => {
     try {
-        if (!ensureConfigDir()) {
+        if (!(await ensureConfigDir())) {
             console.log(chalk.red("Failed to create config directory. Using empty task list."));
             return [];
         }
 
         // Check if file is corrupted
-        if (isFileCorrupted(TASKS_FILE)) {
+        if (await isFileCorrupted(TASKS_FILE)) {
             console.log(chalk.yellow("Tasks file appears to be corrupted. Starting with empty task list."));
             return [];
         }
 
-        const tasks = safeFileRead(TASKS_FILE, []);
+        const tasks = await safeFileRead(TASKS_FILE, []);
 
         // Validate loaded tasks
         const validation = validateTasksArray(tasks);
@@ -86,7 +86,7 @@ const loadTasks = () => {
 };
 
 // Save tasks with error handling
-const saveTasks = (tasks) => {
+const saveTasks = async (tasks) => {
     try {
         // Validate tasks before saving
         const validation = validateTasksArray(tasks);
@@ -100,7 +100,7 @@ const saveTasks = (tasks) => {
             return false;
         }
 
-        const result = safeFileWrite(TASKS_FILE, tasks);
+        const result = await safeFileWrite(TASKS_FILE, tasks);
         if (result.success) {
             console.log(chalk.gray(`Saved ${tasks.length} tasks successfully.`));
             return true;
@@ -234,11 +234,11 @@ const removeTask = (tasks, index) => {
 };
 
 // Backup tasks
-const backupTasks = () => {
+const backupTasks = async () => {
     try {
-        const tasks = loadTasks();
+        const tasks = await loadTasks();
         const backupFile = TASKS_FILE.replace('.json', `.backup.${Date.now()}.json`);
-        const result = safeFileWrite(backupFile, tasks);
+        const result = await safeFileWrite(backupFile, tasks);
         if (result.success) {
             console.log(chalk.green(`Tasks backed up to: ${backupFile}`));
             return true;

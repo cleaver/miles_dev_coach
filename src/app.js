@@ -24,20 +24,20 @@ const program = new Command();
 // Initialize application state with error handling
 let config, tasks, commandHistory, historyIndex;
 
-const initializeApp = () => {
+const initializeApp = async () => {
     try {
         console.log(chalk.gray("Initializing Gemini Dev Coach..."));
 
         // Load configuration
-        config = loadConfig();
+        config = await loadConfig();
         console.log(chalk.gray("Configuration loaded."));
 
         // Load tasks
-        tasks = loadTasks();
+        tasks = await loadTasks();
         console.log(chalk.gray(`Loaded ${tasks.length} tasks.`));
 
         // Load command history
-        commandHistory = loadHistory();
+        commandHistory = await loadHistory();
         historyIndex = -1;
         console.log(chalk.gray("Command history loaded."));
 
@@ -122,22 +122,22 @@ Available commands:
 
                 case "exit":
                     console.log(chalk.green("Exiting Dev Coach. See you next time!"));
-                    saveHistory(commandHistory);
+                    await saveHistory(commandHistory);
                     process.exit(0);
                     break;
 
                 case "todo":
-                    const todoResult = handleTodoCommand(args, tasks);
+                    const todoResult = await handleTodoCommand(args, tasks);
                     tasks = todoResult.tasks;
                     break;
 
                 case "config":
-                    const configResult = handleConfigCommand(args, config, saveConfig);
+                    const configResult = await handleConfigCommand(args, config, saveConfig);
                     config = configResult.config;
                     break;
 
                 case "checkin":
-                    const checkinResult = handleCheckinCommand(args, config, saveConfig, scheduleCheckins);
+                    const checkinResult = await handleCheckinCommand(args, config, saveConfig, scheduleCheckins);
                     config = checkinResult.config;
                     break;
 
@@ -174,7 +174,7 @@ program
     .action(async () => {
         try {
             // Initialize the application
-            if (!initializeApp()) {
+            if (!await initializeApp()) {
                 process.exit(1);
             }
 
@@ -214,9 +214,9 @@ program
                 ask();
             });
 
-            rl.on('close', () => {
+            rl.on('close', async () => {
                 try {
-                    saveHistory(commandHistory);
+                    await saveHistory(commandHistory);
                     console.log(chalk.green("Session ended. History saved."));
                 } catch (error) {
                     const errorResult = handleError(error, "Saving History on Exit", ErrorTypes.FILE_IO);
@@ -226,10 +226,10 @@ program
             });
 
             // Handle process termination gracefully
-            process.on('SIGINT', () => {
+            process.on('SIGINT', async () => {
                 console.log(chalk.yellow("\nReceived interrupt signal. Saving and exiting..."));
                 try {
-                    saveHistory(commandHistory);
+                    await saveHistory(commandHistory);
                     console.log(chalk.green("History saved. Goodbye!"));
                 } catch (error) {
                     const errorResult = handleError(error, "Saving History on Interrupt", ErrorTypes.FILE_IO);
@@ -238,10 +238,10 @@ program
                 process.exit(0);
             });
 
-            process.on('SIGTERM', () => {
+            process.on('SIGTERM', async () => {
                 console.log(chalk.yellow("\nReceived termination signal. Saving and exiting..."));
                 try {
-                    saveHistory(commandHistory);
+                    await saveHistory(commandHistory);
                     console.log(chalk.green("History saved. Goodbye!"));
                 } catch (error) {
                     const errorResult = handleError(error, "Saving History on Termination", ErrorTypes.FILE_IO);

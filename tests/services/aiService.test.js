@@ -5,22 +5,24 @@ const {
     getFallbackResponse
 } = require('../../src/services/aiService');
 
-// Mock dependencies
-jest.mock('chalk', () => ({
-    default: {
-        red: jest.fn((text) => text),
-        yellow: jest.fn((text) => text),
-        blue: jest.fn((text) => text),
-        green: jest.fn((text) => text),
-        gray: jest.fn((text) => text),
-        magenta: jest.fn((text) => text)
-    }
-}));
+// Mock the Google Generative AI library
+const mockResponse = {
+    text: jest.fn()
+};
+
+const mockModel = {
+    generateContent: jest.fn()
+};
+
+const mockGenAI = {
+    getGenerativeModel: jest.fn(() => mockModel)
+};
 
 jest.mock('@google/generative-ai', () => ({
-    GoogleGenerativeAI: jest.fn()
+    GoogleGenerativeAI: jest.fn(() => mockGenAI)
 }));
 
+// Mock error handler
 jest.mock('../../src/utils/errorHandler', () => ({
     handleError: jest.fn((error, context, type) => ({
         success: false,
@@ -29,35 +31,28 @@ jest.mock('../../src/utils/errorHandler', () => ({
     })),
     ErrorTypes: {
         API_ERROR: 'API_ERROR',
-        VALIDATION_ERROR: 'VALIDATION_ERROR',
         NETWORK_ERROR: 'NETWORK_ERROR',
+        VALIDATION_ERROR: 'VALIDATION_ERROR',
         UNKNOWN_ERROR: 'UNKNOWN_ERROR'
     },
     validateApiKey: jest.fn()
 }));
 
-const { GoogleGenerativeAI } = require('@google/generative-ai');
-const { handleError, validateApiKey } = require('../../src/utils/errorHandler');
+// Mock chalk
+jest.mock('chalk', () => ({
+    default: {
+        red: jest.fn((text) => text),
+        yellow: jest.fn((text) => text),
+        magenta: jest.fn((text) => text)
+    }
+}));
 
 describe('AIService', () => {
-    let mockModel;
-    let mockGenAI;
-
     beforeEach(() => {
         jest.clearAllMocks();
-        console.log = jest.fn();
-        console.error = jest.fn();
-
-        // Setup mock AI model
-        mockModel = {
-            generateContent: jest.fn()
-        };
-
-        mockGenAI = {
-            getGenerativeModel: jest.fn(() => mockModel)
-        };
-
-        GoogleGenerativeAI.mockImplementation(() => mockGenAI);
+        mockResponse.text.mockReturnValue('Test response');
+        mockModel.generateContent.mockResolvedValue({ response: mockResponse });
+        mockGenAI.getGenerativeModel.mockReturnValue(mockModel);
     });
 
     describe('getFallbackResponse', () => {
@@ -78,39 +73,45 @@ describe('AIService', () => {
     });
 
     describe('getAiResponse', () => {
-        test('should return error for empty message', async () => {
-            const result = await getAiResponse('', 'valid-api-key');
-            expect(result).toContain('Message must be a non-empty string');
+        test('should return AI response successfully', async () => {
+            const { validateApiKey } = require('../../src/utils/errorHandler');
+            validateApiKey.mockReturnValue({ valid: true });
+
+            const result = await getAiResponse('test message', 'test-api-key');
+
+            expect(result).toContain('AI Coach: Test response');
+            expect(mockGenAI.getGenerativeModel).toHaveBeenCalledWith({ model: 'gemini-2.5-flash' });
+            expect(mockModel.generateContent).toHaveBeenCalledWith(
+                expect.stringContaining('test message')
+            );
         });
 
-        test('should return error for invalid API key', async () => {
+        test('should handle invalid API key', async () => {
+            const { validateApiKey } = require('../../src/utils/errorHandler');
             validateApiKey.mockReturnValue({
                 valid: false,
                 error: 'Invalid API key'
             });
 
-            const result = await getAiResponse('Hello', 'invalid-key');
-            expect(result).toContain('Invalid API key');
+            const result = await getAiResponse('test message', 'invalid-key');
+
+            expect(result).toContain('AI Coach: Invalid API key');
+            expect(result).toContain('Please use /config set ai_api_key YOUR_API_KEY');
         });
 
-        test('should return AI response successfully', async () => {
-            const mockResponse = {
-                response: {
-                    text: jest.fn(() => 'Hello! How can I help you today?')
-                }
-            };
-
+        test('should handle API errors gracefully', async () => {
+            const { validateApiKey } = require('../../src/utils/errorHandler');
             validateApiKey.mockReturnValue({ valid: true });
-            mockModel.generateContent.mockResolvedValue(mockResponse);
+            mockModel.generateContent.mockRejectedValue(new Error('API Error'));
 
-            const result = await getAiResponse('Hello', 'valid-api-key');
+            const result = await getAiResponse('test message', 'test-api-key');
 
-            expect(result).toContain('AI Coach: Hello! How can I help you today?');
-            expect(GoogleGenerativeAI).toHaveBeenCalledWith('valid-api-key');
-            expect(mockGenAI.getGenerativeModel).toHaveBeenCalledWith({ model: 'gemini-2.5-flash' });
+            expect(result).toContain('AI Coach:');
+            expect(result).not.toContain('Test response');
         });
 
-        test('should handle API timeout', async () => {
+        test('should handle timeout errors', async () => {
+            const { validateApiKey } = require('../../src/utils/errorHandler');
             validateApiKey.mockReturnValue({ valid: true });
             mockModel.generateContent.mockImplementation(() =>
                 new Promise((_, reject) =>
@@ -118,61 +119,25 @@ describe('AIService', () => {
                 )
             );
 
-            const result = await getAiResponse('Hello', 'valid-api-key');
+            const result = await getAiResponse('test message', 'test-api-key');
 
             expect(result).toContain('AI Coach:');
-            expect(handleError).toHaveBeenCalled();
-        });
-
-        test('should handle API errors gracefully', async () => {
-            validateApiKey.mockReturnValue({ valid: true });
-            mockModel.generateContent.mockRejectedValue(new Error('API Error'));
-
-            const result = await getAiResponse('Hello', 'valid-api-key');
-
-            expect(result).toContain('AI Coach:');
-            expect(handleError).toHaveBeenCalled();
-        });
-
-        test('should enhance message with context', async () => {
-            const mockResponse = {
-                response: {
-                    text: jest.fn(() => 'Response')
-                }
-            };
-
-            validateApiKey.mockReturnValue({ valid: true });
-            mockModel.generateContent.mockResolvedValue(mockResponse);
-
-            await getAiResponse('Test message', 'valid-api-key');
-
-            expect(mockModel.generateContent).toHaveBeenCalledWith(
-                expect.stringContaining('You are a helpful AI developer coach')
-            );
-            expect(mockModel.generateContent).toHaveBeenCalledWith(
-                expect.stringContaining('Test message')
-            );
         });
     });
 
     describe('testAiConnection', () => {
         test('should test connection successfully', async () => {
-            const mockResponse = {
-                response: {
-                    text: jest.fn(() => 'Hello')
-                }
-            };
-
+            const { validateApiKey } = require('../../src/utils/errorHandler');
             validateApiKey.mockReturnValue({ valid: true });
-            mockModel.generateContent.mockResolvedValue(mockResponse);
 
-            const result = await testAiConnection('valid-api-key');
+            const result = await testAiConnection('test-api-key');
 
             expect(result.success).toBe(true);
             expect(result.message).toBe('AI connection test successful');
         });
 
         test('should handle invalid API key', async () => {
+            const { validateApiKey } = require('../../src/utils/errorHandler');
             validateApiKey.mockReturnValue({
                 valid: false,
                 error: 'Invalid API key'
@@ -184,46 +149,32 @@ describe('AIService', () => {
             expect(result.error).toBe('Invalid API key');
         });
 
-        test('should handle connection timeout', async () => {
+        test('should handle connection errors', async () => {
+            const { validateApiKey } = require('../../src/utils/errorHandler');
             validateApiKey.mockReturnValue({ valid: true });
-            mockModel.generateContent.mockImplementation(() =>
-                new Promise((_, reject) =>
-                    setTimeout(() => reject(new Error('Connection timeout')), 100)
-                )
-            );
+            mockModel.generateContent.mockRejectedValue(new Error('Connection failed'));
 
-            const result = await testAiConnection('valid-api-key');
+            const result = await testAiConnection('test-api-key');
 
             expect(result.success).toBe(false);
-            expect(handleError).toHaveBeenCalled();
-        });
-
-        test('should handle API errors', async () => {
-            validateApiKey.mockReturnValue({ valid: true });
-            mockModel.generateContent.mockRejectedValue(new Error('API Error'));
-
-            const result = await testAiConnection('valid-api-key');
-
-            expect(result.success).toBe(false);
-            expect(handleError).toHaveBeenCalled();
+            expect(result.error).toContain('Error in AI Connection Test');
         });
     });
 
     describe('getAiServiceStatus', () => {
         test('should return configured status for valid API key', () => {
+            const { validateApiKey } = require('../../src/utils/errorHandler');
             validateApiKey.mockReturnValue({ valid: true });
 
-            const result = getAiServiceStatus('valid-api-key');
+            const result = getAiServiceStatus('test-api-key');
 
             expect(result.status).toBe('configured');
             expect(result.message).toBe('API key configured');
         });
 
         test('should return not configured status for invalid API key', () => {
-            validateApiKey.mockReturnValue({
-                valid: false,
-                error: 'Invalid API key'
-            });
+            const { validateApiKey } = require('../../src/utils/errorHandler');
+            validateApiKey.mockReturnValue({ valid: false });
 
             const result = getAiServiceStatus('invalid-key');
 

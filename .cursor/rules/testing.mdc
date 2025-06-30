@@ -1,0 +1,6 @@
+---
+description: 
+globs: src/**/*.js
+alwaysApply: false
+---
+Run tests after changes by running `npm run test`. Check for runtime errors by running `echo "/exit" | npm run start`. You can add other commands before the "/exit" too.

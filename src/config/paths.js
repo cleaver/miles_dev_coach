@@ -1,5 +1,5 @@
 const path = require("path");
-const fs = require("fs");
+const fs = require("fs").promises;
 const chalk = require("chalk").default;
 const { handleError, ErrorTypes } = require("../utils/errorHandler");
 
@@ -13,14 +13,16 @@ const TASKS_FILE = path.join(CONFIG_DIR, "tasks.json");
 const HISTORY_FILE = path.join(CONFIG_DIR, "history.json");
 
 // Ensure config directory exists with error handling
-const ensureConfigDir = () => {
+const ensureConfigDir = async () => {
     try {
-        if (!fs.existsSync(CONFIG_DIR)) {
-            fs.mkdirSync(CONFIG_DIR, { recursive: true });
-            console.log(chalk.gray(`Created config directory: ${CONFIG_DIR}`));
-        }
+        await fs.access(CONFIG_DIR);
         return true;
     } catch (error) {
+        if (error.code === 'ENOENT') {
+            await fs.mkdir(CONFIG_DIR, { recursive: true });
+            console.log(chalk.gray(`Created config directory: ${CONFIG_DIR}`));
+            return true;
+        }
         const errorResult = handleError(error, "Creating config directory", ErrorTypes.FILE_IO);
         console.log(chalk.red(errorResult.userMessage));
         return false;
@@ -28,18 +30,19 @@ const ensureConfigDir = () => {
 };
 
 // Check if config directory is writable
-const isConfigDirWritable = () => {
+const isConfigDirWritable = async () => {
     try {
-        if (!fs.existsSync(CONFIG_DIR)) {
-            return ensureConfigDir();
-        }
+        await fs.access(CONFIG_DIR);
 
         // Test write permissions by creating a temporary file
         const testFile = path.join(CONFIG_DIR, '.test-write');
-        fs.writeFileSync(testFile, 'test');
-        fs.unlinkSync(testFile);
+        await fs.writeFile(testFile, 'test');
+        await fs.unlink(testFile);
         return true;
     } catch (error) {
+        if (error.code === 'ENOENT') {
+            return await ensureConfigDir();
+        }
         const errorResult = handleError(error, "Checking config directory permissions", ErrorTypes.FILE_IO);
         console.log(chalk.red(errorResult.userMessage));
         return false;
@@ -47,35 +50,33 @@ const isConfigDirWritable = () => {
 };
 
 // Get file size safely
-const getFileSize = (filePath) => {
+const getFileSize = async (filePath) => {
     try {
-        if (fs.existsSync(filePath)) {
-            const stats = fs.statSync(filePath);
-            return stats.size;
-        }
-        return 0;
+        const stats = await fs.stat(filePath);
+        return stats.size;
     } catch (error) {
+        if (error.code === 'ENOENT') {
+            return 0;
+        }
         console.error(chalk.yellow(`Failed to get file size for ${filePath}: ${error.message}`));
         return 0;
     }
 };
 
 // Check if file is corrupted (empty or invalid JSON)
-const isFileCorrupted = (filePath) => {
+const isFileCorrupted = async (filePath) => {
     try {
-        if (!fs.existsSync(filePath)) {
-            return false; // File doesn't exist, not corrupted
-        }
-
-        const content = fs.readFileSync(filePath, "utf8");
+        const content = await fs.readFile(filePath, "utf8");
         if (!content.trim()) {
             return true; // Empty file is considered corrupted
         }
-
         JSON.parse(content); // Try to parse JSON
         return false; // Valid JSON
     } catch (error) {
-        return true; // Invalid JSON is corrupted
+        if (error.code === 'ENOENT') {
+            return false; // File doesn't exist, not corrupted
+        }
+        return true; // Invalid JSON or other error is corrupted
     }
 };
 

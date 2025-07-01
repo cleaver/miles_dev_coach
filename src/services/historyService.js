@@ -86,7 +86,6 @@ const saveHistory = async (commandHistory) => {
 
         const result = await safeFileWrite(HISTORY_FILE, commandHistory);
         if (result.success) {
-            console.log(chalk.gray(`Saved ${commandHistory.length} commands to history`));
             return true;
         } else {
             console.log(chalk.red(result.userMessage));

@@ -12,7 +12,7 @@ const { loadHistory, saveHistory, addToHistory } = require("./services/historySe
 const { scheduleCheckins } = require("./services/schedulerService");
 
 // Import commands
-const { handleTodoCommand } = require("./commands/todoCommand");
+const { handleTodoCommand, listTodos } = require("./commands/todoCommand");
 const { handleConfigCommand } = require("./commands/configCommand");
 const { handleCheckinCommand } = require("./commands/checkinCommand");
 
@@ -181,6 +181,10 @@ program
             console.log(chalk.green("Welcome to Gemini Dev Coach! Type /help for commands."));
             console.log(chalk.blue("Let's discuss your plan for today."));
             console.log(chalk.gray("Use ↑/↓ arrows to navigate command history."));
+
+            // Automatically list todos on startup
+            console.log(); // Add spacing
+            listTodos(tasks);
 
             // Setup readline interface
             const rl = readline.createInterface({

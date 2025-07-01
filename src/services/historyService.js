@@ -121,7 +121,6 @@ const addToHistory = (commandHistory, command) => {
             // Keep only last 100 commands
             if (commandHistory.length > DEFAULT_HISTORY_SETTINGS.max_entries) {
                 commandHistory = commandHistory.slice(-DEFAULT_HISTORY_SETTINGS.max_entries);
-                console.log(chalk.gray(`History trimmed to ${DEFAULT_HISTORY_SETTINGS.max_entries} entries`));
             }
 
             if (DEFAULT_HISTORY_SETTINGS.auto_save) {

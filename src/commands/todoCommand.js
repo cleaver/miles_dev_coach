@@ -4,6 +4,31 @@ const { handleError, ErrorTypes } = require("../utils/errorHandler");
 const { validateCommand, getUsage, validateString } = require("../utils/commandValidator");
 const { validateTaskIndex } = require("../utils/errorHandler");
 
+// Helper function to list todos
+const listTodos = (tasks) => {
+    if (tasks.length === 0) {
+        console.log(chalk.blue("No tasks yet. Add some with /todo add <task description>"));
+        return;
+    }
+
+    console.log(chalk.blue("Your current tasks:"));
+    tasks.forEach((task, index) => {
+        let statusColor = chalk.yellow; // pending
+        if (task.status === TASK_STATES.COMPLETED) {
+            statusColor = chalk.green;
+        } else if (task.status === TASK_STATES.IN_PROGRESS) {
+            statusColor = chalk.blue;
+        } else if (task.status === TASK_STATES.ON_HOLD) {
+            statusColor = chalk.magenta;
+        }
+
+        const createdDate = task.created_at ? new Date(task.created_at).toLocaleDateString() : "Unknown";
+        console.log(
+            `${index + 1}. [${statusColor(task.status.toUpperCase())}] ${task.description} (Created: ${createdDate})`
+        );
+    });
+};
+
 const handleTodoCommand = async (args, tasks) => {
     try {
         // Basic argument validation
@@ -41,6 +66,8 @@ const handleTodoCommand = async (args, tasks) => {
                 const addedTask = addTask(tasks, descriptionValidation.value);
                 if (addedTask) {
                     console.log(chalk.green(`Added task: "${descriptionValidation.value}"`));
+                    console.log(); // Add spacing
+                    listTodos(tasks); // Automatically list todos after adding
                     return { tasks: tasks, success: true };
                 } else {
                     console.log(chalk.red("Failed to add task. Please try again."));
@@ -48,27 +75,7 @@ const handleTodoCommand = async (args, tasks) => {
                 }
 
             case "list":
-                if (tasks.length === 0) {
-                    console.log(chalk.blue("No tasks yet. Add some with /todo add <task description>"));
-                    return { tasks: tasks, success: true };
-                }
-
-                console.log(chalk.blue("Your current tasks:"));
-                tasks.forEach((task, index) => {
-                    let statusColor = chalk.yellow; // pending
-                    if (task.status === TASK_STATES.COMPLETED) {
-                        statusColor = chalk.green;
-                    } else if (task.status === TASK_STATES.IN_PROGRESS) {
-                        statusColor = chalk.blue;
-                    } else if (task.status === TASK_STATES.ON_HOLD) {
-                        statusColor = chalk.magenta;
-                    }
-
-                    const createdDate = task.created_at ? new Date(task.created_at).toLocaleDateString() : "Unknown";
-                    console.log(
-                        `${index + 1}. [${statusColor(task.status.toUpperCase())}] ${task.description} (Created: ${createdDate})`
-                    );
-                });
+                listTodos(tasks);
                 return { tasks: tasks, success: true };
 
             case "start":
@@ -83,6 +90,8 @@ const handleTodoCommand = async (args, tasks) => {
                 const startedTask = startTask(tasks, startIndex);
                 if (startedTask) {
                     console.log(chalk.green(`Started task: "${startedTask.description}"`));
+                    console.log(); // Add spacing
+                    listTodos(tasks); // Automatically list todos after starting
                     return { tasks: tasks, success: true };
                 } else {
                     console.log(chalk.red("Failed to start task. Please try again."));
@@ -101,6 +110,8 @@ const handleTodoCommand = async (args, tasks) => {
                 const completedTask = completeTask(tasks, completeIndex);
                 if (completedTask) {
                     console.log(chalk.green(`Task "${completedTask.description}" marked as completed.`));
+                    console.log(); // Add spacing
+                    listTodos(tasks); // Automatically list todos after completing
                     return { tasks: tasks, success: true };
                 } else {
                     console.log(chalk.red("Failed to complete task. Please try again."));
@@ -119,6 +130,8 @@ const handleTodoCommand = async (args, tasks) => {
                 const removedTask = removeTask(tasks, removeIndex);
                 if (removedTask) {
                     console.log(chalk.green(`Removed task: "${removedTask.description}"`));
+                    console.log(); // Add spacing
+                    listTodos(tasks); // Automatically list todos after removing
                     return { tasks: tasks, success: true };
                 } else {
                     console.log(chalk.red("Failed to remove task. Please try again."));
@@ -150,5 +163,6 @@ const handleTodoCommand = async (args, tasks) => {
 };
 
 module.exports = {
-    handleTodoCommand
+    handleTodoCommand,
+    listTodos
 }; 

@@ -1,5 +1,5 @@
 const chalk = require("chalk").default;
-const { addTask, completeTask, removeTask, backupTasks } = require("../services/taskService");
+const { addTask, completeTask, startTask, removeTask, backupTasks, TASK_STATES } = require("../services/taskService");
 const { handleError, ErrorTypes } = require("../utils/errorHandler");
 const { validateCommand, getUsage, validateString, validateIndex } = require("../utils/commandValidator");
 
@@ -54,11 +54,13 @@ const handleTodoCommand = async (args, tasks) => {
 
                 console.log(chalk.blue("Your current tasks:"));
                 tasks.forEach((task, index) => {
-                    let statusColor = chalk.yellow;
-                    if (task.status === "completed") {
+                    let statusColor = chalk.yellow; // pending
+                    if (task.status === TASK_STATES.COMPLETED) {
                         statusColor = chalk.green;
-                    } else if (task.status === "in progress") {
+                    } else if (task.status === TASK_STATES.IN_PROGRESS) {
                         statusColor = chalk.blue;
+                    } else if (task.status === TASK_STATES.ON_HOLD) {
+                        statusColor = chalk.magenta;
                     }
 
                     const createdDate = task.created_at ? new Date(task.created_at).toLocaleDateString() : "Unknown";
@@ -67,6 +69,24 @@ const handleTodoCommand = async (args, tasks) => {
                     );
                 });
                 return { tasks: tasks, success: true };
+
+            case "start":
+                const startIndex = args[1];
+                const startValidation = validateIndex(startIndex, tasks, "Task index");
+                if (!startValidation.valid) {
+                    console.log(chalk.red(startValidation.error));
+                    console.log(chalk.blue(getUsage('todo', 'start')));
+                    return { tasks: tasks, success: false };
+                }
+
+                const startedTask = startTask(tasks, startValidation.value);
+                if (startedTask) {
+                    console.log(chalk.green(`Started task: "${startedTask.description}"`));
+                    return { tasks: tasks, success: true };
+                } else {
+                    console.log(chalk.red("Failed to start task. Please try again."));
+                    return { tasks: tasks, success: false };
+                }
 
             case "complete":
                 const completeIndex = args[1];
@@ -122,6 +142,7 @@ const handleTodoCommand = async (args, tasks) => {
 
     } catch (error) {
         const errorResult = handleError(error, "Todo Command", ErrorTypes.UNKNOWN_ERROR);
+        console.error('DEBUG error:', error);
         console.log(chalk.red(errorResult.userMessage));
         return { tasks: tasks, success: false };
     }

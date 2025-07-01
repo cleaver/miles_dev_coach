@@ -4,8 +4,15 @@ const { handleTodoCommand } = require('../../src/commands/todoCommand');
 jest.mock('../../src/services/taskService', () => ({
     addTask: jest.fn(),
     completeTask: jest.fn(),
+    startTask: jest.fn(),
     removeTask: jest.fn(),
-    backupTasks: jest.fn()
+    backupTasks: jest.fn(),
+    TASK_STATES: {
+        PENDING: 'pending',
+        IN_PROGRESS: 'in-progress',
+        ON_HOLD: 'on-hold',
+        COMPLETED: 'completed'
+    }
 }));
 
 jest.mock('../../src/utils/errorHandler', () => ({
@@ -22,21 +29,18 @@ jest.mock('../../src/utils/errorHandler', () => ({
 
 jest.mock('../../src/utils/commandValidator', () => ({
     validateCommand: jest.fn(),
-    getUsage: jest.fn(() => 'Usage: /todo [add <task>|list|complete <index>|remove <index>|backup]'),
+    getUsage: jest.fn(() => 'Usage: /todo [add <task>|list|start <index>|complete <index>|remove <index>|backup]'),
     validateString: jest.fn(),
     validateIndex: jest.fn()
 }));
 
 jest.mock('chalk', () => ({
-    default: {
-        red: jest.fn((text) => text),
-        blue: jest.fn((text) => text),
-        green: jest.fn((text) => text),
-        yellow: jest.fn((text) => text)
-    }
+    default: new Proxy({}, {
+        get: (target, prop) => (text) => text
+    })
 }));
 
-const { addTask, completeTask, removeTask, backupTasks } = require('../../src/services/taskService');
+const { addTask, completeTask, startTask, removeTask, backupTasks } = require('../../src/services/taskService');
 const { validateCommand, getUsage, validateString, validateIndex } = require('../../src/utils/commandValidator');
 const { handleError } = require('../../src/utils/errorHandler');
 
@@ -59,7 +63,7 @@ describe('TodoCommand', () => {
             {
                 id: 2,
                 description: 'Test task 2',
-                status: 'in progress',
+                status: 'in-progress',
                 created_at: '2023-01-01T00:00:00.000Z',
                 updated_at: '2023-01-01T00:00:00.000Z'
             }
@@ -71,6 +75,7 @@ describe('TodoCommand', () => {
         validateIndex.mockReturnValue({ valid: true, value: 0 });
         addTask.mockReturnValue({ id: 3, description: 'test task', status: 'pending' });
         completeTask.mockReturnValue({ id: 1, description: 'Test task 1', status: 'completed' });
+        startTask.mockReturnValue({ id: 1, description: 'Test task 1', status: 'in-progress' });
         removeTask.mockReturnValue({ id: 1, description: 'Test task 1', status: 'pending' });
         backupTasks.mockResolvedValue(true);
     });
@@ -95,12 +100,12 @@ describe('TodoCommand', () => {
         test('should handle list command with tasks', async () => {
             const args = ['list'];
             const tasks = [
-                { id: 1, description: 'Task 1', status: 'pending' },
-                { id: 2, description: 'Task 2', status: 'completed' }
+                { id: 1, description: 'Task 1', status: 'pending', created_at: '2023-01-01T00:00:00.000Z', updated_at: '2023-01-01T00:00:00.000Z' },
+                { id: 2, description: 'Task 2', status: 'completed', created_at: '2023-01-01T00:00:00.000Z', updated_at: '2023-01-01T00:00:00.000Z' }
             ];
 
             const result = await handleTodoCommand(args, tasks);
-
+            console.log('DEBUG result:', result);
             expect(result.success).toBe(true);
             expect(result.tasks).toEqual(tasks);
         });
@@ -126,6 +131,19 @@ describe('TodoCommand', () => {
             expect(result.success).toBe(true);
             expect(validateIndex).toHaveBeenCalledWith('1', tasks, 'Task index');
             expect(completeTask).toHaveBeenCalledWith(tasks, 0);
+        });
+
+        test('should handle start command successfully', async () => {
+            const args = ['start', '1'];
+            const tasks = [
+                { id: 1, description: 'Task 1', status: 'pending' }
+            ];
+
+            const result = await handleTodoCommand(args, tasks);
+
+            expect(result.success).toBe(true);
+            expect(validateIndex).toHaveBeenCalledWith('1', tasks, 'Task index');
+            expect(startTask).toHaveBeenCalledWith(tasks, 0);
         });
 
         test('should handle remove command successfully', async () => {

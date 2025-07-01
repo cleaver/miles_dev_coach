@@ -41,6 +41,7 @@ describe('CommandValidator', () => {
             expect(COMMAND_SCHEMAS.todo).toEqual({
                 add: { minArgs: 1, description: "add <task description>" },
                 list: { minArgs: 0, description: "list" },
+                start: { minArgs: 1, description: "start <task number>" },
                 complete: { minArgs: 1, description: "complete <task number>" },
                 remove: { minArgs: 1, description: "remove <task number>" },
                 backup: { minArgs: 0, description: "backup" }
@@ -119,7 +120,7 @@ describe('CommandValidator', () => {
 
         test('should return usage for command without subcommand', () => {
             const result = getUsage('todo');
-            expect(result).toBe('Usage: /todo [add|list|complete|remove|backup]');
+            expect(result).toBe('Usage: /todo [add|list|start|complete|remove|backup]');
         });
 
         test('should handle unknown command', () => {
@@ -129,7 +130,7 @@ describe('CommandValidator', () => {
 
         test('should handle unknown subcommand', () => {
             const result = getUsage('todo', 'unknown');
-            expect(result).toBe('Usage: /todo [add|list|complete|remove|backup]');
+            expect(result).toBe('Usage: /todo [add|list|start|complete|remove|backup]');
         });
     });
 

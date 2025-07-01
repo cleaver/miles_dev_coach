@@ -7,6 +7,7 @@ const COMMAND_SCHEMAS = {
     todo: {
         add: { minArgs: 1, description: "add <task description>" },
         list: { minArgs: 0, description: "list" },
+        start: { minArgs: 1, description: "start <task number>" },
         complete: { minArgs: 1, description: "complete <task number>" },
         remove: { minArgs: 1, description: "remove <task number>" },
         backup: { minArgs: 0, description: "backup" }

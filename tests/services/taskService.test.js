@@ -94,7 +94,7 @@ describe('TaskService', () => {
             };
             const result = validateTask(invalidTask);
             expect(result.valid).toBe(false);
-            expect(result.errors).toContain('Task status must be one of: pending, in progress, completed');
+            expect(result.errors).toContain('Task status must be one of: pending, in-progress, on-hold, completed');
         });
     });
 

@@ -11,6 +11,14 @@ const DEFAULT_TASK = {
     updated_at: new Date().toISOString()
 };
 
+// Task state machine constants
+const TASK_STATES = {
+    PENDING: 'pending',
+    IN_PROGRESS: 'in-progress',
+    ON_HOLD: 'on-hold',
+    COMPLETED: 'completed'
+};
+
 // Validate task structure
 const validateTask = (task) => {
     const errors = [];
@@ -19,8 +27,8 @@ const validateTask = (task) => {
         errors.push("Task description is required and must be a non-empty string");
     }
 
-    if (!task.status || !['pending', 'in progress', 'completed'].includes(task.status)) {
-        errors.push("Task status must be one of: pending, in progress, completed");
+    if (!task.status || !['pending', 'in-progress', 'on-hold', 'completed'].includes(task.status)) {
+        errors.push("Task status must be one of: pending, in-progress, on-hold, completed");
     }
 
     return {
@@ -199,6 +207,66 @@ const completeTask = (tasks, index) => {
     }
 };
 
+// Start a task with state machine logic
+const startTask = (tasks, index) => {
+    try {
+        const validation = validateTaskIndex(index, tasks);
+        if (!validation.valid) {
+            const errorResult = handleError(
+                new Error(validation.error),
+                "Starting task",
+                ErrorTypes.VALIDATION_ERROR
+            );
+            console.log(chalk.red(errorResult.userMessage));
+            return null;
+        }
+
+        const taskIndex = validation.index;
+        const targetTask = tasks[taskIndex];
+
+        if (!targetTask) {
+            return null;
+        }
+
+        // Check if the task can be started
+        if (targetTask.status === TASK_STATES.COMPLETED) {
+            console.log(chalk.yellow("Cannot start a completed task."));
+            return null;
+        }
+
+        // Find any currently in-progress task
+        const currentInProgressIndex = tasks.findIndex(task => task.status === TASK_STATES.IN_PROGRESS);
+
+        // If there's a task in progress, put it on hold
+        if (currentInProgressIndex !== -1 && currentInProgressIndex !== taskIndex) {
+            tasks[currentInProgressIndex].status = TASK_STATES.ON_HOLD;
+            tasks[currentInProgressIndex].updated_at = new Date().toISOString();
+            console.log(chalk.yellow(`Task "${tasks[currentInProgressIndex].description}" moved to on-hold.`));
+        }
+
+        // Start the target task
+        targetTask.status = TASK_STATES.IN_PROGRESS;
+        targetTask.updated_at = new Date().toISOString();
+
+        if (saveTasks(tasks)) {
+            return targetTask;
+        } else {
+            // Revert changes if save failed
+            if (currentInProgressIndex !== -1 && currentInProgressIndex !== taskIndex) {
+                tasks[currentInProgressIndex].status = TASK_STATES.IN_PROGRESS;
+                tasks[currentInProgressIndex].updated_at = new Date().toISOString();
+            }
+            targetTask.status = targetTask.status === TASK_STATES.PENDING ? TASK_STATES.PENDING : TASK_STATES.ON_HOLD;
+            targetTask.updated_at = new Date().toISOString();
+            return null;
+        }
+    } catch (error) {
+        const errorResult = handleError(error, "Starting task", ErrorTypes.UNKNOWN_ERROR);
+        console.log(chalk.red(errorResult.userMessage));
+        return null;
+    }
+};
+
 // Remove a task with validation
 const removeTask = (tasks, index) => {
     try {
@@ -258,8 +326,10 @@ module.exports = {
     saveTasks,
     addTask,
     completeTask,
+    startTask,
     removeTask,
     backupTasks,
     validateTask,
-    validateTasksArray
+    validateTasksArray,
+    TASK_STATES
 }; 

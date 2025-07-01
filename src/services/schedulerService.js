@@ -63,7 +63,7 @@ const scheduleCheckins = (config, saveConfig) => {
                         // Send notification
                         notifier.notify(
                             {
-                                title: "Gemini Dev Coach Check-in!",
+                                title: "Miles Dev Coach Check-in!",
                                 message: "It's time for your scheduled check-in. Open the CLI to discuss!",
                                 sound: true, // Only on macOS
                                 wait: true, // Wait for user to click notification before closing
@@ -156,7 +156,7 @@ const testNotification = () => {
         notifier.notify(
             {
                 title: "Test Notification",
-                message: "This is a test notification from Gemini Dev Coach",
+                message: "This is a test notification from Miles Dev Coach",
                 sound: true,
                 wait: true,
             },

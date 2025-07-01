@@ -22,7 +22,7 @@ This is the most direct and powerful integration. Right now, a check-in is just 
 
 **Example Transformation:**
 
-* **Before:** "Gemini Dev Coach Check-in! It's time for your scheduled check-in."
+* **Before:** "Miles Dev Coach Check-in! It's time for your scheduled check-in."
 * **After:** "Hey there! Great job knocking out 'Fix the login bug' today! I noticed 'Refactor the API module' is still pending. Is everything going smoothly with that one?"
 
 ***

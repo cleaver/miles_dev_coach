@@ -6,7 +6,7 @@ const { handleError, ErrorTypes } = require("../utils/errorHandler");
 // Configuration and Data Paths
 const CONFIG_DIR = path.join(
     process.env.HOME || process.env.USERPROFILE,
-    ".gemini-dev-coach"
+    ".miles-dev-coach"
 );
 const CONFIG_FILE = path.join(CONFIG_DIR, "config.json");
 const TASKS_FILE = path.join(CONFIG_DIR, "tasks.json");

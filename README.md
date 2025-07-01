@@ -1,4 +1,4 @@
-# Gemini Dev Coach CLI
+# Miles Dev Coach CLI
 
 A personal AI-powered developer productivity coach CLI to help you manage tasks, discuss plans, and stay on track with scheduled check-ins.
 
@@ -15,7 +15,7 @@ A personal AI-powered developer productivity coach CLI to help you manage tasks,
 1.  **Clone the repository (if applicable):**
     ```bash
     git clone <repository-url>
-    cd gemini-dev-coach-cli
+    cd miles-dev-coach-cli
     ```
 
 2.  **Install dependencies:**

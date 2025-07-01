@@ -26,7 +26,7 @@ let config, tasks, commandHistory, historyIndex;
 
 const initializeApp = async () => {
     try {
-        console.log(chalk.gray("Initializing Gemini Dev Coach..."));
+        console.log(chalk.gray("Initializing Miles Dev Coach..."));
 
         // Load configuration
         config = await loadConfig();
@@ -49,7 +49,7 @@ const initializeApp = async () => {
             console.log(chalk.yellow(`Warning: Failed to schedule check-ins: ${scheduleResult.error}`));
         }
 
-        console.log(chalk.green("Gemini Dev Coach initialized successfully!"));
+        console.log(chalk.green("Miles Dev Coach initialized successfully!"));
         return true;
 
     } catch (error) {
@@ -178,7 +178,7 @@ program
                 process.exit(1);
             }
 
-            console.log(chalk.green("Welcome to Gemini Dev Coach! Type /help for commands."));
+            console.log(chalk.green("Welcome to Miles Dev Coach! Type /help for commands."));
             console.log(chalk.blue("Let's discuss your plan for today."));
             console.log(chalk.gray("Use ↑/↓ arrows to navigate command history."));
 

@@ -24,7 +24,8 @@ jest.mock('../../src/utils/errorHandler', () => ({
     ErrorTypes: {
         VALIDATION_ERROR: 'VALIDATION_ERROR',
         UNKNOWN_ERROR: 'UNKNOWN_ERROR'
-    }
+    },
+    validateTaskIndex: jest.fn()
 }));
 
 jest.mock('../../src/utils/commandValidator', () => ({
@@ -41,8 +42,8 @@ jest.mock('chalk', () => ({
 }));
 
 const { addTask, completeTask, startTask, removeTask, backupTasks } = require('../../src/services/taskService');
-const { validateCommand, getUsage, validateString, validateIndex } = require('../../src/utils/commandValidator');
-const { handleError } = require('../../src/utils/errorHandler');
+const { validateCommand, getUsage, validateString } = require('../../src/utils/commandValidator');
+const { handleError, validateTaskIndex } = require('../../src/utils/errorHandler');
 
 describe('TodoCommand', () => {
     let mockTasks;
@@ -72,7 +73,7 @@ describe('TodoCommand', () => {
         // Default mock implementations
         validateCommand.mockReturnValue({ valid: true });
         validateString.mockReturnValue({ valid: true, value: 'test task' });
-        validateIndex.mockReturnValue({ valid: true, value: 0 });
+        validateTaskIndex.mockReturnValue({ valid: true, index: 0 });
         addTask.mockReturnValue({ id: 3, description: 'test task', status: 'pending' });
         completeTask.mockReturnValue({ id: 1, description: 'Test task 1', status: 'completed' });
         startTask.mockReturnValue({ id: 1, description: 'Test task 1', status: 'in-progress' });
@@ -129,8 +130,8 @@ describe('TodoCommand', () => {
             const result = await handleTodoCommand(args, tasks);
 
             expect(result.success).toBe(true);
-            expect(validateIndex).toHaveBeenCalledWith('1', tasks, 'Task index');
-            expect(completeTask).toHaveBeenCalledWith(tasks, 0);
+            expect(validateTaskIndex).toHaveBeenCalledWith('1', tasks);
+            expect(completeTask).toHaveBeenCalledWith(tasks, '1');
         });
 
         test('should handle start command successfully', async () => {
@@ -142,8 +143,8 @@ describe('TodoCommand', () => {
             const result = await handleTodoCommand(args, tasks);
 
             expect(result.success).toBe(true);
-            expect(validateIndex).toHaveBeenCalledWith('1', tasks, 'Task index');
-            expect(startTask).toHaveBeenCalledWith(tasks, 0);
+            expect(validateTaskIndex).toHaveBeenCalledWith('1', tasks);
+            expect(startTask).toHaveBeenCalledWith(tasks, '1');
         });
 
         test('should handle remove command successfully', async () => {
@@ -155,8 +156,8 @@ describe('TodoCommand', () => {
             const result = await handleTodoCommand(args, tasks);
 
             expect(result.success).toBe(true);
-            expect(validateIndex).toHaveBeenCalledWith('1', tasks, 'Task index');
-            expect(removeTask).toHaveBeenCalledWith(tasks, 0);
+            expect(validateTaskIndex).toHaveBeenCalledWith('1', tasks);
+            expect(removeTask).toHaveBeenCalledWith(tasks, '1');
         });
 
         test('should handle backup command successfully', async () => {

@@ -1,7 +1,8 @@
 const chalk = require("chalk").default;
 const { addTask, completeTask, startTask, removeTask, backupTasks, TASK_STATES } = require("../services/taskService");
 const { handleError, ErrorTypes } = require("../utils/errorHandler");
-const { validateCommand, getUsage, validateString, validateIndex } = require("../utils/commandValidator");
+const { validateCommand, getUsage, validateString } = require("../utils/commandValidator");
+const { validateTaskIndex } = require("../utils/errorHandler");
 
 const handleTodoCommand = async (args, tasks) => {
     try {
@@ -72,14 +73,14 @@ const handleTodoCommand = async (args, tasks) => {
 
             case "start":
                 const startIndex = args[1];
-                const startValidation = validateIndex(startIndex, tasks, "Task index");
+                const startValidation = validateTaskIndex(startIndex, tasks);
                 if (!startValidation.valid) {
                     console.log(chalk.red(startValidation.error));
                     console.log(chalk.blue(getUsage('todo', 'start')));
                     return { tasks: tasks, success: false };
                 }
 
-                const startedTask = startTask(tasks, startValidation.value);
+                const startedTask = startTask(tasks, startIndex);
                 if (startedTask) {
                     console.log(chalk.green(`Started task: "${startedTask.description}"`));
                     return { tasks: tasks, success: true };
@@ -90,14 +91,14 @@ const handleTodoCommand = async (args, tasks) => {
 
             case "complete":
                 const completeIndex = args[1];
-                const completeValidation = validateIndex(completeIndex, tasks, "Task index");
+                const completeValidation = validateTaskIndex(completeIndex, tasks);
                 if (!completeValidation.valid) {
                     console.log(chalk.red(completeValidation.error));
                     console.log(chalk.blue(getUsage('todo', 'complete')));
                     return { tasks: tasks, success: false };
                 }
 
-                const completedTask = completeTask(tasks, completeValidation.value);
+                const completedTask = completeTask(tasks, completeIndex);
                 if (completedTask) {
                     console.log(chalk.green(`Task "${completedTask.description}" marked as completed.`));
                     return { tasks: tasks, success: true };
@@ -108,14 +109,14 @@ const handleTodoCommand = async (args, tasks) => {
 
             case "remove":
                 const removeIndex = args[1];
-                const removeValidation = validateIndex(removeIndex, tasks, "Task index");
+                const removeValidation = validateTaskIndex(removeIndex, tasks);
                 if (!removeValidation.valid) {
                     console.log(chalk.red(removeValidation.error));
                     console.log(chalk.blue(getUsage('todo', 'remove')));
                     return { tasks: tasks, success: false };
                 }
 
-                const removedTask = removeTask(tasks, removeValidation.value);
+                const removedTask = removeTask(tasks, removeIndex);
                 if (removedTask) {
                     console.log(chalk.green(`Removed task: "${removedTask.description}"`));
                     return { tasks: tasks, success: true };

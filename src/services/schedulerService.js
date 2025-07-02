@@ -3,6 +3,10 @@ const notifier = require("node-notifier");
 const chalk = require("chalk").default;
 const { handleError, ErrorTypes, validateTimeFormat } = require("../utils/errorHandler");
 
+// Import services for AI-powered check-ins
+const { loadTasks } = require("./taskService");
+const { getAiResponse } = require("./aiService");
+
 // Validate checkin configuration
 const validateCheckinConfig = (checkins) => {
     if (!Array.isArray(checkins)) {
@@ -24,6 +28,40 @@ const validateCheckinConfig = (checkins) => {
         valid: errors.length === 0,
         errors
     };
+};
+
+// Create intelligent prompt based on task context
+const createSmartPrompt = (tasks) => {
+    const taskSummary = {
+        inProgress: tasks.filter(t => t.status === 'in-progress').map(t => t.description),
+        onHold: tasks.filter(t => t.status === 'on-hold').map(t => t.description),
+        pending: tasks.filter(t => t.status === 'pending').length,
+        completedToday: tasks.filter(t => {
+            const completedDate = new Date(t.updated_at);
+            const today = new Date();
+            return t.status === 'completed' && completedDate.toDateString() === today.toDateString();
+        }).length
+    };
+
+    let prompt = `You are a friendly and encouraging developer productivity coach. It's time for a scheduled check-in. Here is a summary of the user's tasks: ${JSON.stringify(taskSummary, null, 2)}.
+    
+    Generate a concise, motivating message based on this summary. Keep it under 150 words and be encouraging.`;
+
+    // Add specific instructions based on the state
+    if (taskSummary.inProgress.length > 0) {
+        prompt += ` The user is currently working on: "${taskSummary.inProgress[0]}". Ask how it's going.`;
+    }
+    if (taskSummary.onHold.length > 0) {
+        prompt += ` Acknowledge the tasks on hold and suggest coming back to them later.`;
+    }
+    if (taskSummary.completedToday > 0) {
+        prompt += ` Congratulate them for completing ${taskSummary.completedToday} task(s) today!`;
+    }
+    if (taskSummary.inProgress.length === 0 && taskSummary.onHold.length === 0 && taskSummary.pending > 0) {
+        prompt += ` Gently nudge them to start one of their pending tasks.`;
+    }
+
+    return prompt;
 };
 
 // Schedule checkins with error handling
@@ -58,25 +96,37 @@ const scheduleCheckins = (config, saveConfig) => {
                     return;
                 }
 
-                const job = schedule.scheduleJob({ hour: hours, minute: minutes, second: 0 }, () => {
+                const job = schedule.scheduleJob({ hour: hours, minute: minutes, second: 0 }, async () => {
                     try {
-                        // Send notification
-                        notifier.notify(
-                            {
-                                title: "Miles Dev Coach Check-in!",
-                                message: "It's time for your scheduled check-in. Open the CLI to discuss!",
-                                sound: true, // Only on macOS
-                                wait: true, // Wait for user to click notification before closing
-                            },
-                            function (err, response) {
-                                if (err) {
-                                    console.log(chalk.yellow(`Notification error: ${err.message}`));
-                                }
-                            }
-                        );
+                        // --- 1. GATHER CONTEXT ---
+                        const tasks = await loadTasks();
+                        const apiKey = config.ai_api_key;
 
-                        console.log(chalk.green(`\n--- Scheduled Check-in (${checkinTime}) ---`));
-                        console.log(chalk.blue("AI Coach: Hello! It's time for our check-in. How are things going?"));
+                        // If no tasks or no API key, do nothing.
+                        if (!tasks || tasks.length === 0 || !apiKey) {
+                            console.log(chalk.gray("Check-in skipped: No tasks or API key."));
+                            return;
+                        }
+
+                        // --- 2. CRAFT THE SMART PROMPT ---
+                        const smartPrompt = createSmartPrompt(tasks);
+
+                        // --- 3. GET AI RESPONSE ---
+                        // We strip the color codes for the notification
+                        const aiResponse = await getAiResponse(smartPrompt, apiKey);
+                        const uncoloredResponse = aiResponse.replace(/[\u001b\u009b][[()#;?]*.{0,2}m/g, ''); // Removes chalk colors
+
+                        // --- 4. DELIVER THE NUDGE ---
+                        notifier.notify({
+                            title: "Miles Dev Coach Check-in! 🤖",
+                            message: uncoloredResponse, // Use the AI's message
+                            sound: true,
+                            wait: true,
+                        });
+
+                        // Also log it to the console if the app is active
+                        console.log(chalk.green(`\n--- 🤖 AI Check-in (${checkinTime}) ---`));
+                        console.log(aiResponse);
 
                         // Remove the triggered check-in and re-schedule
                         const triggeredIndex = config.checkins.indexOf(checkinTime);
@@ -92,14 +142,14 @@ const scheduleCheckins = (config, saveConfig) => {
                         }
 
                     } catch (error) {
-                        const errorResult = handleError(error, "Executing check-in", ErrorTypes.UNKNOWN_ERROR);
+                        const errorResult = handleError(error, "Executing AI check-in", ErrorTypes.UNKNOWN_ERROR);
                         console.log(chalk.red(errorResult.userMessage));
                     }
                 });
 
                 if (job) {
                     scheduledCount++;
-                    console.log(chalk.green(`Scheduled daily check-in for ${checkinTime}`));
+                    console.log(chalk.green(`Scheduled daily AI check-in for ${checkinTime}`));
                 } else {
                     console.log(chalk.red(`Failed to schedule check-in for ${checkinTime}`));
                 }
@@ -181,5 +231,6 @@ module.exports = {
     cancelAllJobs,
     getScheduledJobsInfo,
     testNotification,
-    validateCheckinConfig
+    validateCheckinConfig,
+    createSmartPrompt
 }; 

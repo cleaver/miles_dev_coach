@@ -23,6 +23,22 @@ A personal AI-powered developer productivity coach CLI to help you manage tasks,
     npm install
     ```
 
+## AI Integration
+
+This application integrates with Google Gemini. To enable AI capabilities, you will need to:
+
+1.  **Obtain an API key from Google AI Studio:**
+    - Visit [Google AI Studio](https://aistudio.google.com/app/apikey)
+    - Sign in with your Google account
+    - Click "Create API Key" to generate a new key
+    - Copy the generated API key (it starts with "AIza...")
+2.  **Set the API key using the `/config` command:**
+    ```
+    /config set ai_api_key YOUR_GEMINI_API_KEY
+    ```
+
+Once the API key is set, the AI coach will provide intelligent responses and discussions. You can test the connection using `/config test` to verify everything is working correctly.
+
 ## Usage
 
 To start the interactive AI coaching session, run:
@@ -73,22 +89,6 @@ npm run start
     *   Example: `/checkin remove 1`
 *   `/checkin status`: Show the status of scheduled check-ins.
 *   `/checkin test`: Test the notification system.
-
-## AI Integration
-
-This application integrates with Google Gemini. To enable AI capabilities, you will need to:
-
-1.  **Obtain an API key from Google AI Studio:**
-    - Visit [Google AI Studio](https://aistudio.google.com/app/apikey)
-    - Sign in with your Google account
-    - Click "Create API Key" to generate a new key
-    - Copy the generated API key (it starts with "AIza...")
-2.  **Set the API key using the `/config` command:**
-    ```
-    /config set ai_api_key YOUR_GEMINI_API_KEY
-    ```
-
-Once the API key is set, the AI coach will provide intelligent responses and discussions. You can test the connection using `/config test` to verify everything is working correctly.
 
 ## Development
 

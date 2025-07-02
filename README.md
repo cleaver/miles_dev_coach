@@ -4,11 +4,12 @@ A personal AI-powered developer productivity coach CLI to help you manage tasks,
 
 ## Features
 
-*   **Interactive AI Coaching:** Discuss your daily plans, progress, and blockers with an AI.
-*   **Daily Task Management:** Add, list, complete, and remove tasks.
-*   **Persistent Storage:** Tasks and configurations are saved locally.
-*   **Scheduled Check-ins:** Get notified at set times for a quick discussion with your coach.
-*   **Cross-platform Notifications:** Uses `node-notifier` for desktop alerts on macOS and Linux.
+*   **Interactive AI Coaching:** Discuss your daily plans, progress, and blockers with an AI-powered coach that adapts to your communication style.
+*   **Smart Task Management:** Add, track, and complete tasks with status tracking (pending, in progress, completed).
+*   **Desktop Notifications:** Get desktop alerts for scheduled check-ins and important reminders.
+*   **Flexible Scheduling:** Set check-ins using absolute times (09:30) or intervals (2h 30m from now).
+*   **Persistent Storage:** All tasks, configurations, and command history are saved locally.
+*   **Cross-platform Support:** Works on macOS, Linux, and Windows with native notifications.
 
 ## Installation
 
@@ -38,6 +39,36 @@ This application integrates with Google Gemini. To enable AI capabilities, you w
     ```
 
 Once the API key is set, the AI coach will provide intelligent responses and discussions. You can test the connection using `/config test` to verify everything is working correctly.
+
+## How to Use Miles Dev Coach
+
+Miles Dev Coach is designed to be your AI-powered development companion throughout your workday. Here's how to integrate it into your daily routine:
+
+### Morning Planning
+- Start your day by running `npm run start`
+- Discuss your goals and priorities for the day with your AI coach
+- Use `/todo add` to create your task list
+- Set up check-ins for important milestones using `/checkin add`
+
+### During Development
+- Keep the session running in a terminal window
+- Use `/todo start` when you begin working on a task
+- Mark tasks as complete with `/todo complete` as you finish them
+- Chat with your coach about blockers, progress, or technical decisions
+- Get reminded of scheduled check-ins for progress reviews
+
+### End of Day
+- Review your completed tasks with `/todo list`
+- Discuss what you accomplished and any challenges faced
+- Plan for tomorrow's priorities
+- Use `/todo backup` to save your progress
+
+### Scheduled Check-ins
+- Set up regular check-in times (e.g., `/checkin add 10:00` for a 10 AM review)
+- Get desktop notifications when it's time to check in
+- Use these moments to pause, reflect, and adjust your approach
+
+The AI coach adapts to your communication style and helps you stay focused, organized, and productive throughout your development workflow.
 
 ## Usage
 

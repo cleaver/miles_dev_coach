@@ -3,24 +3,40 @@ const fs = require("fs").promises;
 const chalk = require("chalk").default;
 const { handleError, ErrorTypes } = require("../utils/errorHandler");
 
-// Configuration and Data Paths
-const CONFIG_DIR = path.join(
+// Default configuration and data paths
+const getDefaultConfigDir = () => path.join(
     process.env.HOME || process.env.USERPROFILE,
     ".miles-dev-coach"
 );
-const CONFIG_FILE = path.join(CONFIG_DIR, "config.json");
-const TASKS_FILE = path.join(CONFIG_DIR, "tasks.json");
-const HISTORY_FILE = path.join(CONFIG_DIR, "history.json");
+
+// Global variable to store custom data directory
+let customDataDir = null;
+
+// Set custom data directory
+const setCustomDataDir = (dir) => {
+    customDataDir = dir;
+};
+
+// Get the current config directory (custom or default)
+const getConfigDir = () => {
+    return customDataDir || getDefaultConfigDir();
+};
+
+// Configuration and Data Paths
+const getConfigFile = () => path.join(getConfigDir(), "config.json");
+const getTasksFile = () => path.join(getConfigDir(), "tasks.json");
+const getHistoryFile = () => path.join(getConfigDir(), "history.json");
 
 // Ensure config directory exists with error handling
 const ensureConfigDir = async () => {
     try {
-        await fs.access(CONFIG_DIR);
+        const configDir = getConfigDir();
+        await fs.access(configDir);
         return true;
     } catch (error) {
         if (error.code === 'ENOENT') {
-            await fs.mkdir(CONFIG_DIR, { recursive: true });
-            console.log(chalk.gray(`Created config directory: ${CONFIG_DIR}`));
+            await fs.mkdir(configDir, { recursive: true });
+            console.log(chalk.gray(`Created config directory: ${configDir}`));
             return true;
         }
         const errorResult = handleError(error, "Creating config directory", ErrorTypes.FILE_IO);
@@ -32,10 +48,11 @@ const ensureConfigDir = async () => {
 // Check if config directory is writable
 const isConfigDirWritable = async () => {
     try {
-        await fs.access(CONFIG_DIR);
+        const configDir = getConfigDir();
+        await fs.access(configDir);
 
         // Test write permissions by creating a temporary file
-        const testFile = path.join(CONFIG_DIR, '.test-write');
+        const testFile = path.join(configDir, '.test-write');
         await fs.writeFile(testFile, 'test');
         await fs.unlink(testFile);
         return true;
@@ -81,10 +98,12 @@ const isFileCorrupted = async (filePath) => {
 };
 
 module.exports = {
-    CONFIG_DIR,
-    CONFIG_FILE,
-    TASKS_FILE,
-    HISTORY_FILE,
+    // New function exports
+    getConfigDir,
+    getConfigFile,
+    getTasksFile,
+    getHistoryFile,
+    setCustomDataDir,
     ensureConfigDir,
     isConfigDirWritable,
     getFileSize,

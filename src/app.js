@@ -3,6 +3,7 @@
 const { Command } = require("commander");
 const chalk = require("chalk").default;
 const readline = require("readline");
+const path = require("path");
 
 // Import services
 const { loadConfig, saveConfig } = require("./config/configManager");
@@ -19,6 +20,9 @@ const { handleCheckinCommand } = require("./commands/checkinCommand");
 // Import error handling
 const { handleError, ErrorTypes } = require("./utils/errorHandler");
 
+// Import paths module
+const { setCustomDataDir, getConfigDir } = require("./config/paths");
+
 const program = new Command();
 
 // Initialize application state with error handling
@@ -27,6 +31,7 @@ let config, tasks, commandHistory, historyIndex;
 const initializeApp = async () => {
     try {
         console.log(chalk.gray("Initializing Miles Dev Coach..."));
+        console.log(chalk.gray(`Using data directory: ${getConfigDir()}`));
 
         // Load configuration
         config = await loadConfig();
@@ -171,8 +176,16 @@ program
 program
     .command("start")
     .description("Start the interactive AI coaching session.")
-    .action(async () => {
+    .option("-d, --data-dir <directory>", "Specify custom data directory (default: ~/.miles-dev-coach)")
+    .action(async (options) => {
         try {
+            // Set custom data directory if provided
+            if (options.dataDir) {
+                const dataDir = path.resolve(options.dataDir);
+                setCustomDataDir(dataDir);
+                console.log(chalk.blue(`Using custom data directory: ${dataDir}`));
+            }
+
             // Initialize the application
             if (!await initializeApp()) {
                 process.exit(1);

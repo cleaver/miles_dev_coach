@@ -1,5 +1,5 @@
 const chalk = require("chalk").default;
-const { CONFIG_FILE, ensureConfigDir } = require("./paths");
+const { getConfigFile, ensureConfigDir } = require("./paths");
 const { safeFileRead, safeFileWrite, handleError, ErrorTypes, validateApiKey } = require("../utils/errorHandler");
 
 // Default configuration
@@ -43,7 +43,7 @@ const validateConfig = (config) => {
 const loadConfig = async () => {
     try {
         await ensureConfigDir();
-        const config = await safeFileRead(CONFIG_FILE, DEFAULT_CONFIG);
+        const config = await safeFileRead(getConfigFile(), DEFAULT_CONFIG);
 
         // Validate loaded config
         const validation = validateConfig(config);
@@ -79,7 +79,7 @@ const saveConfig = async (config) => {
             return false;
         }
 
-        const result = await safeFileWrite(CONFIG_FILE, config);
+        const result = await safeFileWrite(getConfigFile(), config);
         if (result.success) {
             console.log(chalk.gray("Configuration saved successfully."));
             return true;
@@ -97,7 +97,7 @@ const saveConfig = async (config) => {
 // Reset configuration to defaults
 const resetConfig = () => {
     try {
-        const result = safeFileWrite(CONFIG_FILE, DEFAULT_CONFIG);
+        const result = safeFileWrite(getConfigFile(), DEFAULT_CONFIG);
         if (result.success) {
             console.log(chalk.green("Configuration reset to defaults."));
             return true;

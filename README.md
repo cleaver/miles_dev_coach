@@ -83,6 +83,26 @@ npm run start
 ./index.js start
 ```
 
+### Data Directory
+
+By default, Miles Dev Coach stores all data in `~/.miles-dev-coach`. You can specify a custom data directory using the `--data-dir` option:
+
+```bash
+# Use a custom directory
+npm run start -- --data-dir /path/to/custom/directory
+
+# Or with the direct command
+./index.js start --data-dir /path/to/custom/directory
+
+# Short form
+./index.js start -d /path/to/custom/directory
+```
+
+This is useful for:
+- Using different data directories for different projects
+- Storing data in a shared location
+- Testing with isolated data
+
 ### In-App Commands (type these in the `You:` prompt)
 
 *   `/help`: Display available commands.

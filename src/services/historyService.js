@@ -1,5 +1,5 @@
 const chalk = require("chalk").default;
-const { HISTORY_FILE, ensureConfigDir, isFileCorrupted } = require("../config/paths");
+const { getHistoryFile, ensureConfigDir, isFileCorrupted } = require("../config/paths");
 const { safeFileRead, safeFileWrite, handleError, ErrorTypes } = require("../utils/errorHandler");
 
 // Default history settings
@@ -39,12 +39,12 @@ const loadHistory = async () => {
         }
 
         // Check if file is corrupted
-        if (await isFileCorrupted(HISTORY_FILE)) {
+        if (await isFileCorrupted(getHistoryFile())) {
             console.log(chalk.yellow("History file appears to be corrupted. Starting with empty history."));
             return [];
         }
 
-        const commandHistory = await safeFileRead(HISTORY_FILE, []);
+        const commandHistory = await safeFileRead(getHistoryFile(), []);
 
         // Validate loaded history
         const validation = validateHistoryArray(commandHistory);
@@ -84,7 +84,7 @@ const saveHistory = async (commandHistory) => {
             return false;
         }
 
-        const result = await safeFileWrite(HISTORY_FILE, commandHistory);
+        const result = await safeFileWrite(getHistoryFile(), commandHistory);
         if (result.success) {
             return true;
         } else {
@@ -141,7 +141,12 @@ const addToHistory = (commandHistory, command) => {
 // Clear history
 const clearHistory = async () => {
     try {
-        const result = await safeFileWrite(HISTORY_FILE, []);
+        if (!(await ensureConfigDir())) {
+            console.log(chalk.red("Failed to create config directory. Cannot clear history."));
+            return false;
+        }
+
+        const result = await safeFileWrite(getHistoryFile(), []);
         if (result.success) {
             console.log(chalk.green("History cleared successfully."));
             return true;
@@ -160,7 +165,7 @@ const clearHistory = async () => {
 const backupHistory = async () => {
     try {
         const history = await loadHistory();
-        const backupFile = HISTORY_FILE.replace('.json', `.backup.${Date.now()}.json`);
+        const backupFile = getHistoryFile().replace('.json', `.backup.${Date.now()}.json`);
         const result = await safeFileWrite(backupFile, history);
         if (result.success) {
             console.log(chalk.green(`History backed up to: ${backupFile}`));

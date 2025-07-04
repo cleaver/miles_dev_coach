@@ -10,7 +10,7 @@ jest.mock('chalk', () => ({
 }));
 
 jest.mock('../../src/config/paths', () => ({
-    TASKS_FILE: '/test/tasks.json',
+    getTasksFile: () => '/test/tasks.json',
     ensureConfigDir: jest.fn(),
     isFileCorrupted: jest.fn()
 }));

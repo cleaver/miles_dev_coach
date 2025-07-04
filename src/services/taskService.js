@@ -1,5 +1,5 @@
 const chalk = require("chalk").default;
-const { TASKS_FILE, ensureConfigDir, isFileCorrupted } = require("../config/paths");
+const { getTasksFile, ensureConfigDir, isFileCorrupted } = require("../config/paths");
 const { safeFileRead, safeFileWrite, handleError, ErrorTypes, validateTaskIndex } = require("../utils/errorHandler");
 
 // Default task structure
@@ -69,12 +69,12 @@ const loadTasks = async () => {
         }
 
         // Check if file is corrupted
-        if (await isFileCorrupted(TASKS_FILE)) {
+        if (await isFileCorrupted(getTasksFile())) {
             console.log(chalk.yellow("Tasks file appears to be corrupted. Starting with empty task list."));
             return [];
         }
 
-        const tasks = await safeFileRead(TASKS_FILE, []);
+        const tasks = await safeFileRead(getTasksFile(), []);
 
         // Validate loaded tasks
         const validation = validateTasksArray(tasks);
@@ -96,6 +96,11 @@ const loadTasks = async () => {
 // Save tasks with error handling
 const saveTasks = async (tasks) => {
     try {
+        if (!(await ensureConfigDir())) {
+            console.log(chalk.red("Failed to create config directory. Cannot save tasks."));
+            return false;
+        }
+
         // Validate tasks before saving
         const validation = validateTasksArray(tasks);
         if (!validation.valid) {
@@ -108,9 +113,8 @@ const saveTasks = async (tasks) => {
             return false;
         }
 
-        const result = await safeFileWrite(TASKS_FILE, tasks);
+        const result = await safeFileWrite(getTasksFile(), tasks);
         if (result.success) {
-            console.log(chalk.gray(`Saved ${tasks.length} tasks successfully.`));
             return true;
         } else {
             console.log(chalk.red(result.userMessage));
@@ -305,7 +309,7 @@ const removeTask = (tasks, index) => {
 const backupTasks = async () => {
     try {
         const tasks = await loadTasks();
-        const backupFile = TASKS_FILE.replace('.json', `.backup.${Date.now()}.json`);
+        const backupFile = getTasksFile().replace('.json', `.backup.${Date.now()}.json`);
         const result = await safeFileWrite(backupFile, tasks);
         if (result.success) {
             console.log(chalk.green(`Tasks backed up to: ${backupFile}`));

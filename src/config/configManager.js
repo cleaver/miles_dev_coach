@@ -6,6 +6,7 @@ const { safeFileRead, safeFileWrite, handleError, ErrorTypes, validateApiKey } =
 const DEFAULT_CONFIG = {
     ai_api_key: "",
     checkins: [],
+    last_successful_checkin: null,
     theme: "default",
     max_history: 100,
     auto_save: true
@@ -26,6 +27,17 @@ const validateConfig = (config) => {
     // Validate checkins array
     if (config.checkins && !Array.isArray(config.checkins)) {
         errors.push("Checkins must be an array");
+    } else if (config.checkins && Array.isArray(config.checkins)) {
+        // Validate each checkin object
+        config.checkins.forEach((checkin, index) => {
+            if (!checkin || typeof checkin !== 'object') {
+                errors.push(`Checkin at index ${index} must be an object`);
+            } else if (!checkin.time || typeof checkin.time !== 'string') {
+                errors.push(`Checkin at index ${index} must have a 'time' property (string)`);
+            } else if (!checkin.id || typeof checkin.id !== 'string') {
+                errors.push(`Checkin at index ${index} must have an 'id' property (string)`);
+            }
+        });
     }
 
     // Validate max_history

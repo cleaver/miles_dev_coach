@@ -94,37 +94,6 @@
     - [ ] **CI/CD**: Add GitHub Actions for automated testing
     - [ ] **Release process**: Implement proper release process
 
+## Features:
 
 
----
-### A Simple Task State Machine
-
-Here's how it would look based on our discussion:
-
-#### States
-A task can be in one of four states:
-* `pending`: The default state for new tasks.
-* `in-progress`: The single task you are actively working on.
-* `on-hold`: A task that was started but has been paused.
-* `completed`: The task is finished.
-
----
-### Transitions (The Rules)
-
-Your commands trigger the "events" that cause a task to move from one state to another.
-
-* `/todo start <ID>`
-    * **If you start a `pending` task:**
-        * It becomes `in-progress`.
-        * Any existing `in-progress` task automatically moves to `on-hold`.
-    * **If you start an `on-hold` task:**
-        * It becomes `in-progress`.
-        * Any existing `in-progress` task automatically moves to `on-hold`.
-
-* `/todo complete <ID>`
-    * An `in-progress` or `on-hold` task becomes `completed`.
-
-* `/todo add <desc>`
-    * The new task is created in the `pending` state.
-
-This model ensures you can't have two tasks `in-progress` at the same time, and it gracefully handles the pausing of tasks without losing their context. It's a robust foundation for the AI coach to build upon.

@@ -18,7 +18,24 @@ const validateCheckinConfig = (checkins) => {
 
     const errors = [];
     checkins.forEach((checkin, index) => {
-        const timeValidation = validateTimeFormat(checkin);
+        // Validate checkin object structure
+        if (!checkin || typeof checkin !== 'object') {
+            errors.push(`Checkin ${index + 1}: must be an object`);
+            return;
+        }
+
+        if (!checkin.time || typeof checkin.time !== 'string') {
+            errors.push(`Checkin ${index + 1}: must have a 'time' property (string)`);
+            return;
+        }
+
+        if (!checkin.id || typeof checkin.id !== 'string') {
+            errors.push(`Checkin ${index + 1}: must have an 'id' property (string)`);
+            return;
+        }
+
+        // Validate the time format
+        const timeValidation = validateTimeFormat(checkin.time);
         if (!timeValidation.valid) {
             errors.push(`Checkin ${index + 1}: ${timeValidation.error}`);
         }
@@ -86,8 +103,9 @@ const scheduleCheckins = (config, saveConfig) => {
 
         let scheduledCount = 0;
 
-        config.checkins.forEach((checkinTime, index) => {
+        config.checkins.forEach((checkin, index) => {
             try {
+                const checkinTime = checkin.time;
                 const [hours, minutes] = checkinTime.split(":").map(Number);
 
                 // Validate time components
@@ -129,7 +147,7 @@ const scheduleCheckins = (config, saveConfig) => {
                         console.log(aiResponse);
 
                         // Remove the triggered check-in and re-schedule
-                        const triggeredIndex = config.checkins.indexOf(checkinTime);
+                        const triggeredIndex = config.checkins.findIndex(c => c.id === checkin.id);
                         if (triggeredIndex > -1) {
                             config.checkins.splice(triggeredIndex, 1);
                             if (saveConfig(config)) {

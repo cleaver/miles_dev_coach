@@ -1,4 +1,5 @@
 const chalk = require("chalk").default;
+const crypto = require("crypto");
 const { parseTimeInput } = require("../utils/timeUtils");
 const { cancelAllJobs, getScheduledJobsInfo, testNotification } = require("../services/schedulerService");
 const { handleError, ErrorTypes } = require("../utils/errorHandler");
@@ -53,13 +54,17 @@ const handleCheckinCommand = async (args, config, saveConfig, scheduleCheckins) 
                 }
 
                 // Check for duplicate times
-                if (config.checkins.includes(checkinTimeToAdd)) {
+                const existingCheckin = config.checkins.find(checkin => checkin.time === checkinTimeToAdd);
+                if (existingCheckin) {
                     console.log(chalk.yellow(`Check-in for ${checkinTimeToAdd} already exists.`));
                     return { config: config, success: false };
                 }
 
-                // Add the check-in time
-                config.checkins.push(checkinTimeToAdd);
+                // Generate unique ID for the new check-in
+                const checkinId = crypto.randomUUID();
+
+                // Add the check-in time with ID
+                config.checkins.push({ time: checkinTimeToAdd, id: checkinId });
                 const saveResult = await saveConfig(config);
 
                 if (saveResult) {
@@ -96,8 +101,8 @@ const handleCheckinCommand = async (args, config, saveConfig, scheduleCheckins) 
                 }
 
                 console.log(chalk.blue("Your scheduled check-in times:"));
-                config.checkins.forEach((time, index) => {
-                    console.log(`${index + 1}. ${time}`);
+                config.checkins.forEach((checkin, index) => {
+                    console.log(`${index + 1}. ${checkin.time}`);
                 });
                 return { config: config, success: true };
 
@@ -111,7 +116,8 @@ const handleCheckinCommand = async (args, config, saveConfig, scheduleCheckins) 
                 }
 
                 if (config.checkins && config.checkins[removeValidation.value]) {
-                    const removedTime = config.checkins.splice(removeValidation.value, 1)[0];
+                    const removedCheckin = config.checkins.splice(removeValidation.value, 1)[0];
+                    const removedTime = removedCheckin.time;
                     const saveResult = await saveConfig(config);
 
                     if (saveResult) {

@@ -135,9 +135,10 @@ This is useful for:
     *   **Time format:** `HH:MM` (e.g., `09:30` for 9:30 AM)
     *   **Interval format:** `Xh Ym` (e.g., `2h 30m` for 2 hours 30 minutes from now)
     *   Examples: `/checkin add 09:30`, `/checkin add 2h 30m`, `/checkin add 30m`
-*   `/checkin list`: List all scheduled check-in times.
-*   `/checkin remove <check-in number>`: Remove a scheduled check-in.
-    *   Example: `/checkin remove 1`
+    *   Each check-in is assigned a unique ID internally for tracking
+*   `/checkin list`: List all scheduled check-in times with their display numbers.
+*   `/checkin remove <check-in number>`: Remove a scheduled check-in using the displayed list number.
+    *   Example: `/checkin remove 1` (removes the first check-in shown in the list)
 *   `/checkin status`: Show the status of scheduled check-ins.
 *   `/checkin test`: Test the notification system.
 

@@ -162,7 +162,10 @@ describe('SchedulerService - AI Check-ins', () => {
         test('should schedule AI check-ins when API key and tasks are available', async () => {
             const config = {
                 ai_api_key: 'test-api-key',
-                checkins: ['09:00', '17:00']
+                checkins: [
+                    { time: '09:00', id: 'checkin-1' },
+                    { time: '17:00', id: 'checkin-2' }
+                ]
             };
 
             const saveConfig = jest.fn().mockReturnValue(true);
@@ -193,7 +196,7 @@ describe('SchedulerService - AI Check-ins', () => {
         test('should skip check-ins when no API key is provided', async () => {
             const config = {
                 ai_api_key: '',
-                checkins: ['09:00']
+                checkins: [{ time: '09:00', id: 'checkin-1' }]
             };
 
             const saveConfig = jest.fn().mockReturnValue(true);
@@ -214,7 +217,7 @@ describe('SchedulerService - AI Check-ins', () => {
         test('should skip check-ins when no tasks are available', async () => {
             const config = {
                 ai_api_key: 'test-api-key',
-                checkins: ['09:00']
+                checkins: [{ time: '09:00', id: 'checkin-1' }]
             };
 
             const saveConfig = jest.fn().mockReturnValue(true);
@@ -238,7 +241,7 @@ describe('SchedulerService - AI Check-ins', () => {
         test('should handle AI service errors gracefully', async () => {
             const config = {
                 ai_api_key: 'test-api-key',
-                checkins: ['09:00']
+                checkins: [{ time: '09:00', id: 'checkin-1' }]
             };
 
             const saveConfig = jest.fn().mockReturnValue(true);
@@ -273,8 +276,11 @@ describe('SchedulerService - AI Check-ins', () => {
     });
 
     describe('validateCheckinConfig', () => {
-        test('should validate correct check-in times', () => {
-            const checkins = ['09:00', '17:30'];
+        test('should validate correct check-in objects', () => {
+            const checkins = [
+                { time: '09:00', id: 'checkin-1' },
+                { time: '17:30', id: 'checkin-2' }
+            ];
             const result = validateCheckinConfig(checkins);
 
             expect(result.valid).toBe(true);
@@ -285,11 +291,26 @@ describe('SchedulerService - AI Check-ins', () => {
             const { validateTimeFormat } = require('../../src/utils/errorHandler');
             validateTimeFormat.mockReturnValue({ valid: false, error: 'Invalid time format' });
 
-            const checkins = ['25:00', '09:60'];
+            const checkins = [
+                { time: '25:00', id: 'checkin-1' },
+                { time: '09:60', id: 'checkin-2' }
+            ];
             const result = scheduleCheckins({ checkins }, () => true);
 
             expect(result.success).toBe(false);
             expect(result.error).toContain('Invalid time format');
+        });
+
+        test('should reject checkins without required properties', () => {
+            const checkins = [
+                { time: '09:00' }, // missing id
+                { id: 'checkin-2' } // missing time
+            ];
+            const result = validateCheckinConfig(checkins);
+
+            expect(result.valid).toBe(false);
+            expect(result.errors).toContain('Checkin 1: must have an \'id\' property (string)');
+            expect(result.errors).toContain('Checkin 2: must have a \'time\' property (string)');
         });
     });
 

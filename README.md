@@ -26,7 +26,7 @@ A personal AI-powered developer productivity coach CLI to help you manage tasks,
 
 ## AI Integration
 
-This application integrates with Google Gemini. To enable AI capabilities, you will need to:
+This application integrates with Google Gemini using the latest Gen AI SDK. To enable AI capabilities, you will need to:
 
 1.  **Obtain an API key from Google AI Studio:**
     - Visit [Google AI Studio](https://aistudio.google.com/app/apikey)
@@ -38,7 +38,7 @@ This application integrates with Google Gemini. To enable AI capabilities, you w
     /config set ai_api_key YOUR_GEMINI_API_KEY
     ```
 
-Once the API key is set, the AI coach will provide intelligent responses and discussions. You can test the connection using `/config test` to verify everything is working correctly.
+Once the API key is set, the AI coach will provide intelligent responses and discussions using the Gemini 2.0 Flash model. You can test the connection using `/config test` to verify everything is working correctly.
 
 ## How to Use Miles Dev Coach
 
@@ -148,6 +148,16 @@ To contribute or modify the application:
 1.  Fork the repository.
 2.  Make your changes.
 3.  Submit a pull request.
+
+### Testing AI Integration
+
+To test the AI integration with your API key:
+
+```bash
+node test-ai-integration.js YOUR_API_KEY
+```
+
+This will verify that the new @google/genai package is working correctly with your API key.
 
 ### Testing
 

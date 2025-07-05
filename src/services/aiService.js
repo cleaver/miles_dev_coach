@@ -1,5 +1,5 @@
 const chalk = require("chalk").default;
-const { GoogleGenerativeAI } = require("@google/generative-ai");
+const { GoogleGenAI } = require("@google/genai");
 const { handleError, ErrorTypes, validateApiKey } = require("../utils/errorHandler");
 
 // Fallback responses when AI is unavailable
@@ -68,8 +68,7 @@ const getAiResponse = async (message, apiKey) => {
         }
 
         // Create AI instance
-        const genAI = new GoogleGenerativeAI(apiKey);
-        const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+        const ai = new GoogleGenAI({ apiKey: apiKey });
 
         // Add context to the message for better responses
         const enhancedMessage = `You are a helpful AI developer coach. The user is asking: "${message.trim()}". 
@@ -84,13 +83,15 @@ const getAiResponse = async (message, apiKey) => {
 
         try {
             const result = await Promise.race([
-                model.generateContent(enhancedMessage),
+                ai.models.generateContent({
+                    model: "gemini-2.0-flash",
+                    contents: enhancedMessage
+                }),
                 timeoutPromise
             ]);
             clearTimeout(timeoutId);
 
-            const response = await result.response;
-            const text = response.text();
+            const text = result.text;
 
             // Validate the response
             const responseValidation = validateApiResponse(text);
@@ -136,8 +137,7 @@ const testAiConnection = async (apiKey) => {
             };
         }
 
-        const genAI = new GoogleGenerativeAI(apiKey);
-        const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+        const ai = new GoogleGenAI({ apiKey: apiKey });
 
         let timeoutId;
         const timeoutPromise = new Promise((_, reject) => {
@@ -146,7 +146,10 @@ const testAiConnection = async (apiKey) => {
 
         try {
             const result = await Promise.race([
-                model.generateContent("Hello"),
+                ai.models.generateContent({
+                    model: "gemini-2.0-flash",
+                    contents: "Hello"
+                }),
                 timeoutPromise
             ]);
             clearTimeout(timeoutId);

@@ -18,9 +18,9 @@
   ],
   "author": "",
   "license": "ISC",
-  "description": "A personal AI-powered developer productivity coach CLI",
+  "description": "A personal AI-powered developer productivity coach CLI (Updated to use @google/genai)",
   "dependencies": {
-    "@google/generative-ai": "^0.24.1",
+    "@google/genai": "^0.3.0",
     "chalk": "^5.4.1",
     "commander": "^13.1.0",
     "node-notifier": "^10.0.1",

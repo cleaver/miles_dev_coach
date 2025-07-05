@@ -5,21 +5,15 @@ const {
     getFallbackResponse
 } = require('../../src/services/aiService');
 
-// Mock the Google Generative AI library
-const mockResponse = {
-    text: jest.fn()
+// Mock the Google Gen AI library
+const mockAi = {
+    models: {
+        generateContent: jest.fn()
+    }
 };
 
-const mockModel = {
-    generateContent: jest.fn()
-};
-
-const mockGenAI = {
-    getGenerativeModel: jest.fn(() => mockModel)
-};
-
-jest.mock('@google/generative-ai', () => ({
-    GoogleGenerativeAI: jest.fn(() => mockGenAI)
+jest.mock('@google/genai', () => ({
+    GoogleGenAI: jest.fn(() => mockAi)
 }));
 
 // Mock error handler
@@ -50,9 +44,7 @@ jest.mock('chalk', () => ({
 describe('AIService', () => {
     beforeEach(() => {
         jest.clearAllMocks();
-        mockResponse.text.mockReturnValue('Test response');
-        mockModel.generateContent.mockResolvedValue({ response: mockResponse });
-        mockGenAI.getGenerativeModel.mockReturnValue(mockModel);
+        mockAi.models.generateContent.mockResolvedValue({ text: 'Test response' });
     });
 
     describe('getFallbackResponse', () => {
@@ -80,10 +72,10 @@ describe('AIService', () => {
             const result = await getAiResponse('test message', 'test-api-key');
 
             expect(result).toContain('AI Coach: Test response');
-            expect(mockGenAI.getGenerativeModel).toHaveBeenCalledWith({ model: 'gemini-2.5-flash' });
-            expect(mockModel.generateContent).toHaveBeenCalledWith(
-                expect.stringContaining('test message')
-            );
+            expect(mockAi.models.generateContent).toHaveBeenCalledWith({
+                model: 'gemini-2.0-flash',
+                contents: expect.stringContaining('test message')
+            });
         });
 
         test('should handle invalid API key', async () => {
@@ -102,7 +94,7 @@ describe('AIService', () => {
         test('should handle API errors gracefully', async () => {
             const { validateApiKey } = require('../../src/utils/errorHandler');
             validateApiKey.mockReturnValue({ valid: true });
-            mockModel.generateContent.mockRejectedValue(new Error('API Error'));
+            mockAi.models.generateContent.mockRejectedValue(new Error('API Error'));
 
             const result = await getAiResponse('test message', 'test-api-key');
 
@@ -113,7 +105,7 @@ describe('AIService', () => {
         test('should handle timeout errors', async () => {
             const { validateApiKey } = require('../../src/utils/errorHandler');
             validateApiKey.mockReturnValue({ valid: true });
-            mockModel.generateContent.mockImplementation(() =>
+            mockAi.models.generateContent.mockImplementation(() =>
                 new Promise((_, reject) =>
                     setTimeout(() => reject(new Error('Request timeout')), 100)
                 )
@@ -152,7 +144,7 @@ describe('AIService', () => {
         test('should handle connection errors', async () => {
             const { validateApiKey } = require('../../src/utils/errorHandler');
             validateApiKey.mockReturnValue({ valid: true });
-            mockModel.generateContent.mockRejectedValue(new Error('Connection failed'));
+            mockAi.models.generateContent.mockRejectedValue(new Error('Connection failed'));
 
             const result = await testAiConnection('test-api-key');
 

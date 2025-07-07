@@ -21,22 +21,51 @@ const validateDailyCheckinLog = (log) => {
             return;
         }
 
-        // Validate required fields
-        if (!entry.timestamp || typeof entry.timestamp !== 'string') {
-            errors.push(`Daily check-in entry ${index + 1} must have a valid timestamp`);
-        }
+        // Check if this is a legacy entry (with timestamp and content)
+        if (entry.timestamp && entry.content) {
+            // Validate required fields for legacy entries
+            if (!entry.timestamp || typeof entry.timestamp !== 'string') {
+                errors.push(`Daily check-in entry ${index + 1} must have a valid timestamp`);
+            }
 
-        if (!entry.content || typeof entry.content !== 'string' || entry.content.trim().length === 0) {
-            errors.push(`Daily check-in entry ${index + 1} must have non-empty content`);
-        }
+            if (!entry.content || typeof entry.content !== 'string' || entry.content.trim().length === 0) {
+                errors.push(`Daily check-in entry ${index + 1} must have non-empty content`);
+            }
 
-        // Validate optional fields
-        if (entry.mood && typeof entry.mood !== 'string') {
-            errors.push(`Daily check-in entry ${index + 1} mood must be a string`);
-        }
+            // Validate optional fields
+            if (entry.mood && typeof entry.mood !== 'string') {
+                errors.push(`Daily check-in entry ${index + 1} mood must be a string`);
+            }
 
-        if (entry.energy && (typeof entry.energy !== 'number' || entry.energy < 1 || entry.energy > 10)) {
-            errors.push(`Daily check-in entry ${index + 1} energy must be a number between 1 and 10`);
+            if (entry.energy && (typeof entry.energy !== 'number' || entry.energy < 1 || entry.energy > 10)) {
+                errors.push(`Daily check-in entry ${index + 1} energy must be a number between 1 and 10`);
+            }
+        } else if (entry.date && entry.executed_checkins) {
+            // Validate new structure with date and executed_checkins
+            if (!entry.date || typeof entry.date !== 'string') {
+                errors.push(`Daily check-in entry ${index + 1} must have a valid date`);
+            }
+
+            if (!Array.isArray(entry.executed_checkins)) {
+                errors.push(`Daily check-in entry ${index + 1} executed_checkins must be an array`);
+            } else {
+                entry.executed_checkins.forEach((checkin, checkinIndex) => {
+                    if (typeof checkin !== 'object' || checkin === null) {
+                        errors.push(`Daily check-in entry ${index + 1}, executed check-in ${checkinIndex + 1} must be an object`);
+                        return;
+                    }
+
+                    if (!checkin.scheduled_time_id || typeof checkin.scheduled_time_id !== 'string') {
+                        errors.push(`Daily check-in entry ${index + 1}, executed check-in ${checkinIndex + 1} must have a valid scheduled_time_id`);
+                    }
+
+                    if (!checkin.actual_timestamp || typeof checkin.actual_timestamp !== 'string') {
+                        errors.push(`Daily check-in entry ${index + 1}, executed check-in ${checkinIndex + 1} must have a valid actual_timestamp`);
+                    }
+                });
+            }
+        } else {
+            errors.push(`Daily check-in entry ${index + 1} must have either legacy format (timestamp, content) or new format (date, executed_checkins)`);
         }
     });
 
@@ -153,6 +182,65 @@ const addDailyCheckin = async (content, mood = null, energy = null) => {
     }
 };
 
+// Add executed check-in entry for tracking scheduled check-in executions
+const addExecutedCheckin = async (scheduledTimeId) => {
+    try {
+        if (!scheduledTimeId || typeof scheduledTimeId !== 'string') {
+            const errorResult = handleError(
+                new Error("Scheduled time ID must be a non-empty string"),
+                "Adding executed check-in",
+                ErrorTypes.VALIDATION_ERROR
+            );
+            console.log(chalk.red(errorResult.userMessage));
+            return false;
+        }
+
+        const log = await loadDailyCheckinLog();
+        const todayDate = new Date().toISOString().split('T')[0];
+
+        // Find today's entry
+        let todayEntry = log.find(entry => entry.date === todayDate);
+
+        // If no entry exists for today, create a new one
+        if (!todayEntry) {
+            todayEntry = {
+                date: todayDate,
+                executed_checkins: []
+            };
+            log.push(todayEntry);
+        }
+
+        // Check if this scheduled time ID has already been recorded today
+        const existingCheckin = todayEntry.executed_checkins.find(
+            checkin => checkin.scheduled_time_id === scheduledTimeId
+        );
+
+        if (existingCheckin) {
+            console.log(chalk.yellow(`Scheduled check-in ${scheduledTimeId} already recorded for today.`));
+            return true; // Consider this a success since it's already recorded
+        }
+
+        // Add the new executed check-in
+        todayEntry.executed_checkins.push({
+            scheduled_time_id: scheduledTimeId,
+            actual_timestamp: new Date().toISOString()
+        });
+
+        const success = await saveDailyCheckinLog(log);
+        if (success) {
+            console.log(chalk.green(`Executed check-in ${scheduledTimeId} recorded successfully for ${todayDate}.`));
+            return true;
+        } else {
+            console.log(chalk.red("Failed to save executed check-in."));
+            return false;
+        }
+    } catch (error) {
+        const errorResult = handleError(error, "Adding executed check-in", ErrorTypes.UNKNOWN_ERROR);
+        console.log(chalk.red(errorResult.userMessage));
+        return false;
+    }
+};
+
 // Clear daily check-in log
 const clearDailyCheckinLog = async () => {
     try {
@@ -204,6 +292,7 @@ module.exports = {
     loadDailyCheckinLog,
     saveDailyCheckinLog,
     addDailyCheckin,
+    addExecutedCheckin,
     clearDailyCheckinLog,
     getDailyCheckinStats,
     validateDailyCheckinLog,

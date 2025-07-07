@@ -26,6 +26,7 @@ const getConfigDir = () => {
 const getConfigFile = () => path.join(getConfigDir(), "config.json");
 const getTasksFile = () => path.join(getConfigDir(), "tasks.json");
 const getHistoryFile = () => path.join(getConfigDir(), "history.json");
+const getDailyCheckinLogFile = () => path.join(getConfigDir(), "daily_checkin_log.json");
 
 // Ensure config directory exists with error handling
 const ensureConfigDir = async () => {
@@ -103,6 +104,7 @@ module.exports = {
     getConfigFile,
     getTasksFile,
     getHistoryFile,
+    getDailyCheckinLogFile,
     setCustomDataDir,
     ensureConfigDir,
     isConfigDirWritable,

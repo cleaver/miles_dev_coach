@@ -26,6 +26,10 @@ jest.mock('../../src/services/aiService', () => ({
     getAiResponse: jest.fn()
 }));
 
+jest.mock('../../src/services/dailyCheckinService', () => ({
+    addExecutedCheckin: jest.fn()
+}));
+
 jest.mock('../../src/utils/errorHandler', () => ({
     handleError: jest.fn((error, context, type) => ({
         success: false,
@@ -272,6 +276,46 @@ describe('SchedulerService - AI Check-ins', () => {
 
             const { handleError } = require('../../src/utils/errorHandler');
             expect(handleError).toHaveBeenCalled();
+        });
+
+        test('should call addExecutedCheckin when check-in job fires', async () => {
+            const config = {
+                ai_api_key: 'test-api-key',
+                checkins: [{ time: '09:00', id: 'checkin-1' }]
+            };
+
+            const saveConfig = jest.fn().mockReturnValue(true);
+
+            const { loadTasks } = require('../../src/services/taskService');
+            loadTasks.mockResolvedValue([
+                {
+                    id: 1,
+                    description: 'Test task',
+                    status: 'in-progress',
+                    created_at: '2024-01-01T00:00:00.000Z',
+                    updated_at: '2024-01-01T00:00:00.000Z'
+                }
+            ]);
+
+            const { getAiResponse } = require('../../src/services/aiService');
+            getAiResponse.mockResolvedValue('AI Coach: How is your test task going?');
+
+            const { addExecutedCheckin } = require('../../src/services/dailyCheckinService');
+            addExecutedCheckin.mockResolvedValue(true);
+
+            const result = scheduleCheckins(config, saveConfig);
+
+            expect(result.success).toBe(true);
+            expect(result.scheduled).toBe(1);
+
+            // Simulate the job execution
+            const schedule = require('node-schedule');
+            const jobCallback = schedule.scheduleJob.mock.calls[0][1];
+            await jobCallback();
+
+            // Verify that addExecutedCheckin was called with the correct checkin ID
+            expect(addExecutedCheckin).toHaveBeenCalledWith('checkin-1');
+            expect(addExecutedCheckin).toHaveBeenCalledTimes(1);
         });
     });
 

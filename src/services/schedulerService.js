@@ -6,6 +6,7 @@ const { handleError, ErrorTypes, validateTimeFormat } = require("../utils/errorH
 // Import services for AI-powered check-ins
 const { loadTasks } = require("./taskService");
 const { getAiResponse } = require("./aiService");
+const { addExecutedCheckin } = require("./dailyCheckinService");
 
 // Validate checkin configuration
 const validateCheckinConfig = (checkins) => {
@@ -116,6 +117,9 @@ const scheduleCheckins = (config, saveConfig) => {
 
                 const job = schedule.scheduleJob({ hour: hours, minute: minutes, second: 0 }, async () => {
                     try {
+                        // Record the executed check-in immediately
+                        await addExecutedCheckin(checkin.id);
+
                         // --- 1. GATHER CONTEXT ---
                         const tasks = await loadTasks();
                         const apiKey = config.ai_api_key;
@@ -146,18 +150,7 @@ const scheduleCheckins = (config, saveConfig) => {
                         console.log(chalk.green(`\n--- 🤖 AI Check-in (${checkinTime}) ---`));
                         console.log(aiResponse);
 
-                        // Remove the triggered check-in and re-schedule
-                        const triggeredIndex = config.checkins.findIndex(c => c.id === checkin.id);
-                        if (triggeredIndex > -1) {
-                            config.checkins.splice(triggeredIndex, 1);
-                            if (saveConfig(config)) {
-                                schedule.cancelJob(); // Cancel all existing jobs
-                                scheduleCheckins(config, saveConfig); // Schedule all jobs again
-                                console.log(chalk.green(`Check-in for ${checkinTime} completed and removed.`));
-                            } else {
-                                console.log(chalk.red("Failed to save configuration after check-in."));
-                            }
-                        }
+                        console.log(chalk.green(`Check-in for ${checkinTime} executed successfully.`));
 
                     } catch (error) {
                         const errorResult = handleError(error, "Executing AI check-in", ErrorTypes.UNKNOWN_ERROR);

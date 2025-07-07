@@ -288,6 +288,84 @@ const getDailyCheckinStats = async () => {
     }
 };
 
+// Get missed check-ins by comparing scheduled times with executed logs
+const getMissedCheckins = async (scheduledTimes, lastSuccessfulCheckinTimestamp) => {
+    try {
+        // Validate inputs
+        if (!Array.isArray(scheduledTimes)) {
+            const errorResult = handleError(
+                new Error("Scheduled times must be an array"),
+                "Getting missed check-ins",
+                ErrorTypes.VALIDATION_ERROR
+            );
+            console.log(chalk.red(errorResult.userMessage));
+            return [];
+        }
+
+        // Load the daily check-in log
+        const log = await loadDailyCheckinLog();
+
+        // Determine the start date for checking missed check-ins
+        let startDate;
+        if (lastSuccessfulCheckinTimestamp) {
+            // Start from the day after the last successful check-in
+            const lastCheckinDate = new Date(lastSuccessfulCheckinTimestamp);
+            lastCheckinDate.setDate(lastCheckinDate.getDate() + 1);
+            startDate = lastCheckinDate.toISOString().split('T')[0];
+        } else {
+            // If no prior successful check-in, start from today
+            startDate = new Date().toISOString().split('T')[0];
+        }
+
+        // Get today's date (exclusive end date)
+        const todayDate = new Date().toISOString().split('T')[0];
+
+        const missedCheckins = [];
+
+        // Iterate day by day from start date up to (but not including) today
+        const currentDate = new Date(startDate);
+        const endDate = new Date(todayDate);
+
+        while (currentDate < endDate) {
+            const currentDateStr = currentDate.toISOString().split('T')[0];
+
+            // Find the log entry for this date
+            const dayEntry = log.find(entry => entry.date === currentDateStr);
+            const executedCheckins = dayEntry ? dayEntry.executed_checkins : [];
+
+            // Get executed scheduled time IDs for this day
+            const executedIds = executedCheckins.map(checkin => checkin.scheduled_time_id);
+
+            // Check each scheduled time to see if it was missed
+            scheduledTimes.forEach(scheduledTime => {
+                if (!executedIds.includes(scheduledTime.id)) {
+                    // This scheduled time was missed on this day
+                    missedCheckins.push({
+                        date: currentDateStr,
+                        time: scheduledTime.time,
+                        id: scheduledTime.id
+                    });
+                }
+            });
+
+            // Move to next day
+            currentDate.setDate(currentDate.getDate() + 1);
+        }
+
+        if (missedCheckins.length > 0) {
+            console.log(chalk.yellow(`Found ${missedCheckins.length} missed check-ins from ${startDate} to ${todayDate}`));
+        } else {
+            console.log(chalk.green(`No missed check-ins found from ${startDate} to ${todayDate}`));
+        }
+
+        return missedCheckins;
+    } catch (error) {
+        const errorResult = handleError(error, "Getting missed check-ins", ErrorTypes.UNKNOWN_ERROR);
+        console.log(chalk.red(errorResult.userMessage));
+        return [];
+    }
+};
+
 module.exports = {
     loadDailyCheckinLog,
     saveDailyCheckinLog,
@@ -295,6 +373,7 @@ module.exports = {
     addExecutedCheckin,
     clearDailyCheckinLog,
     getDailyCheckinStats,
+    getMissedCheckins,
     validateDailyCheckinLog,
     DEFAULT_DAILY_CHECKIN_LOG
 }; 

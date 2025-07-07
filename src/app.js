@@ -11,6 +11,7 @@ const { getAiResponse } = require("./services/aiService");
 const { loadTasks } = require("./services/taskService");
 const { loadHistory, saveHistory, addToHistory } = require("./services/historyService");
 const { scheduleCheckins } = require("./services/schedulerService");
+const { loadDailyCheckinLog, getMissedCheckins } = require("./services/dailyCheckinService");
 
 // Import commands
 const { handleTodoCommand, listTodos } = require("./commands/todoCommand");
@@ -26,7 +27,7 @@ const { setCustomDataDir, getConfigDir } = require("./config/paths");
 const program = new Command();
 
 // Initialize application state with error handling
-let config, tasks, commandHistory, historyIndex;
+let config, tasks, commandHistory, historyIndex, dailyCheckinLog, missedCheckins;
 
 const initializeApp = async () => {
     try {
@@ -46,8 +47,18 @@ const initializeApp = async () => {
         historyIndex = -1;
         console.log(chalk.gray("Command history loaded."));
 
+        // Load daily check-in log
+        dailyCheckinLog = await loadDailyCheckinLog();
+        console.log(chalk.gray("Daily check-in log loaded."));
+
+        // Get missed check-ins
+        missedCheckins = await getMissedCheckins(config.checkins, config.last_successful_checkin);
+        if (missedCheckins.length > 0) {
+            console.log(chalk.yellow(`Found ${missedCheckins.length} missed check-ins.`));
+        }
+
         // Schedule check-ins
-        const scheduleResult = scheduleCheckins(config, saveConfig);
+        const scheduleResult = scheduleCheckins(config, config.ai_api_key, saveConfig);
         if (scheduleResult.success) {
             console.log(chalk.gray(`Scheduled ${scheduleResult.scheduled} check-ins.`));
         } else {

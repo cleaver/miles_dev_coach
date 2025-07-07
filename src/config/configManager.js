@@ -45,6 +45,17 @@ const validateConfig = (config) => {
         errors.push("max_history must be a positive number");
     }
 
+    // Validate last_successful_checkin
+    if (config.last_successful_checkin !== null && typeof config.last_successful_checkin !== 'string') {
+        errors.push("last_successful_checkin must be null or a valid ISO string");
+    } else if (config.last_successful_checkin && typeof config.last_successful_checkin === 'string') {
+        // Validate ISO string format
+        const date = new Date(config.last_successful_checkin);
+        if (isNaN(date.getTime())) {
+            errors.push("last_successful_checkin must be a valid ISO date string");
+        }
+    }
+
     return {
         valid: errors.length === 0,
         errors

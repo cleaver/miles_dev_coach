@@ -49,7 +49,7 @@ const validateCheckinConfig = (checkins) => {
 };
 
 // Create intelligent prompt based on task context
-const createSmartPrompt = (tasks) => {
+const createSmartPrompt = (tasks, missedCheckins) => {
     const taskSummary = {
         inProgress: tasks.filter(t => t.status === 'in-progress').map(t => t.description),
         onHold: tasks.filter(t => t.status === 'on-hold').map(t => t.description),
@@ -64,6 +64,13 @@ const createSmartPrompt = (tasks) => {
     let prompt = `You are a friendly and encouraging developer productivity coach. It's time for a scheduled check-in. Here is a summary of the user's tasks: ${JSON.stringify(taskSummary, null, 2)}.
     
     Generate a concise, motivating message based on this summary. Keep it under 150 words and be encouraging.`;
+
+    // Add missed check-ins context if any exist
+    if (missedCheckins && missedCheckins.length > 0) {
+        const missedCount = missedCheckins.length;
+        const missedDays = [...new Set(missedCheckins.map(m => m.date))].length;
+        prompt += `\n\nNote: The user has missed ${missedCount} check-in(s) across ${missedDays} day(s). Be encouraging and understanding - life happens! Gently acknowledge this without being accusatory, and focus on moving forward positively.`;
+    }
 
     // Add specific instructions based on the state
     if (taskSummary.inProgress.length > 0) {
@@ -83,7 +90,7 @@ const createSmartPrompt = (tasks) => {
 };
 
 // Schedule checkins with error handling
-const scheduleCheckins = (config, saveConfig) => {
+const scheduleCheckins = (config, aiApiKey, saveConfig) => {
     try {
         if (!config.checkins || config.checkins.length === 0) {
             console.log(chalk.gray("No check-ins scheduled."));
@@ -120,9 +127,13 @@ const scheduleCheckins = (config, saveConfig) => {
                         // Record the executed check-in immediately
                         await addExecutedCheckin(checkin.id);
 
+                        // Update last successful check-in timestamp
+                        config.last_successful_checkin = new Date().toISOString();
+                        await saveConfig(config);
+
                         // --- 1. GATHER CONTEXT ---
                         const tasks = await loadTasks();
-                        const apiKey = config.ai_api_key;
+                        const apiKey = aiApiKey || config.ai_api_key;
 
                         // If no tasks or no API key, do nothing.
                         if (!tasks || tasks.length === 0 || !apiKey) {
@@ -130,8 +141,12 @@ const scheduleCheckins = (config, saveConfig) => {
                             return;
                         }
 
+                        // Get missed check-ins for this specific check-in
+                        const { getMissedCheckins } = require("./dailyCheckinService");
+                        const missed = await getMissedCheckins(config.checkins, config.last_successful_checkin);
+
                         // --- 2. CRAFT THE SMART PROMPT ---
-                        const smartPrompt = createSmartPrompt(tasks);
+                        const smartPrompt = createSmartPrompt(tasks, missed);
 
                         // --- 3. GET AI RESPONSE ---
                         // We strip the color codes for the notification

@@ -188,7 +188,7 @@ describe('SchedulerService - AI Check-ins', () => {
             const { getAiResponse } = require('../../src/services/aiService');
             getAiResponse.mockResolvedValue('AI Coach: How is your test task going?');
 
-            const result = scheduleCheckins(config, saveConfig);
+            const result = scheduleCheckins(config, config.ai_api_key, saveConfig);
 
             expect(result.success).toBe(true);
             expect(result.scheduled).toBe(2);
@@ -205,7 +205,7 @@ describe('SchedulerService - AI Check-ins', () => {
 
             const saveConfig = jest.fn().mockReturnValue(true);
 
-            const result = scheduleCheckins(config, saveConfig);
+            const result = scheduleCheckins(config, config.ai_api_key, saveConfig);
 
             expect(result.success).toBe(true);
             expect(result.scheduled).toBe(1);
@@ -229,7 +229,7 @@ describe('SchedulerService - AI Check-ins', () => {
             const { loadTasks } = require('../../src/services/taskService');
             loadTasks.mockResolvedValue([]);
 
-            const result = scheduleCheckins(config, saveConfig);
+            const result = scheduleCheckins(config, config.ai_api_key, saveConfig);
 
             expect(result.success).toBe(true);
             expect(result.scheduled).toBe(1);
@@ -264,7 +264,7 @@ describe('SchedulerService - AI Check-ins', () => {
             const { getAiResponse } = require('../../src/services/aiService');
             getAiResponse.mockRejectedValue(new Error('API Error'));
 
-            const result = scheduleCheckins(config, saveConfig);
+            const result = scheduleCheckins(config, config.ai_api_key, saveConfig);
 
             expect(result.success).toBe(true);
             expect(result.scheduled).toBe(1);
@@ -303,7 +303,7 @@ describe('SchedulerService - AI Check-ins', () => {
             const { addExecutedCheckin } = require('../../src/services/dailyCheckinService');
             addExecutedCheckin.mockResolvedValue(true);
 
-            const result = scheduleCheckins(config, saveConfig);
+            const result = scheduleCheckins(config, config.ai_api_key, saveConfig);
 
             expect(result.success).toBe(true);
             expect(result.scheduled).toBe(1);
@@ -339,7 +339,8 @@ describe('SchedulerService - AI Check-ins', () => {
                 { time: '25:00', id: 'checkin-1' },
                 { time: '09:60', id: 'checkin-2' }
             ];
-            const result = scheduleCheckins({ checkins }, () => true);
+            const config = { checkins, ai_api_key: '' };
+            const result = scheduleCheckins(config, config.ai_api_key, () => true);
 
             expect(result.success).toBe(false);
             expect(result.error).toContain('Invalid time format');
